@@ -9,7 +9,6 @@ library(kableExtra)
 library(scales)
 
 # Merge datasets ------------------------------------------------------
-
 citation_dta <- read_csv("AI/data/generated/citation_counts.csv")
 
 dta_csa <- read_csv("AI/data/generated/AIpatentCSA.csv") %>%
@@ -127,7 +126,6 @@ gov_index <- function(treatment_year, pre_periods, class_var, city_var){
 
 # Summary
 # Sampling ----------------------------------------------------------------
-
 #Helper function to create samples
 by_class_helper <- function(df, class_var, treatment_year, pre_periods, 
                             city_var,cityname_var, method, all_cities = FALSE,
@@ -268,7 +266,7 @@ by_class <- function(class, treatment_year, pre_periods, city_type, method,
 }
 
 #Patent count data + graphs
-any_ai <- by_class("any_ai",1999, 4, "msa",1)
+# any_ai <- by_class("any_ai",1999, 4, "msa",1)
 # nlp <- by_class("nlp", 1984, 5, "msa", 1)
 # kr <- by_class("kr",1984, 5, "msa", 1)
 # planning <- by_class("planning",1984, 5, "msa", 1)
@@ -278,7 +276,6 @@ any_ai <- by_class("any_ai",1999, 4, "msa",1)
 # ml <- by_class("ml",1984, 5, "msa", 1)
 
 # Graphical ---------------------------------------------------------------
-
 year_totals_excl <- dta_all_merged_excl %>%
   group_by(year) %>%
   summarize(count = n())
@@ -352,7 +349,6 @@ graphical(1999, 9, "msa", 1)
 graphical(2004, 9, "msa", 1)
 graphical(2009, 9, "msa", 1)
 
-excl <- graphical(1999, 9, "msa", 1)
 # Main model -------------------------------------------------------------------
 pop <- read_csv("AI/data/generated/populationMSA.csv") %>%
   #Manually recode Los Angeles MSA and others
@@ -465,7 +461,9 @@ executor <- function(pre_year_vec, post_year_vec, city_type = "msa",
   return(fit)
 }
 
-#Main
+
+# Model Execution ---------------------------------------------------------
+#Main (20)
 fit_20_1999 <- executor(pre_year_vec = c(1990, 1999),
                         post_year_vec = c(2000, 2009),
                         city_type = "msa",
@@ -475,12 +473,15 @@ fit_20_1999 <- executor(pre_year_vec = c(1990, 1999),
 robust_se <- vcovHC(fit_20_1999, type = "HC1")
 coeftest(fit_20_1999, vcov. = robust_se)
 
+#Main (30)
 fit_30_1999 <- executor(pre_year_vec = c(1985, 1999),
                         post_year_vec = c(2000, 2014),
                         city_type = "msa",
                         treatment_year = 1999,
                         pre_periods = 9,
                         extra_reg =  c("class", "Division"))
+summary(fit_30_1999)
+dfadjustSE(fit_30_1999)
 
 fit_30_1999_data <- modeldta_maker(pre_year_vec = c(1985, 1999),
                                             post_year_vec = c(2000, 2014),
@@ -492,23 +493,10 @@ fit_30_1999_data <- modeldta_maker(pre_year_vec = c(1985, 1999),
 fit_30_1999_data$msaname_inventor %>% unique()
 fit_30_1999_data %>% 
   group_by(msaname_inventor) %>%
-  summarize(count= n())
-
-fit_30_1999_data_30 <- modeldta_maker(pre_year_vec = c(1985, 1999),
-                                   post_year_vec = c(2000, 2014),
-                                   city_type = "msa",
-                                   treatment_year = 1999,
-                                   pre_periods = 9,
-                                   num_cities=20) %>%
-  filter(class != "any_ai")
-fit_30_1999_data_30$msaname_inventor %>% unique()
-View(fit_30_1999_data_30 %>% 
-  group_by(msaname_inventor) %>%
   summarize(count= n(),
-            sum_top_1 = sum(count_top_1)))
-summary(fit_30_1999)
-dfadjustSE(fit_30_1999)
+            sum_top_1 = sum(count_top_1))
 
+#Main (30; Share)
 fit_30_1999_share <- executor(pre_year_vec = c(1985, 1999),
                               post_year_vec = c(2000, 2014),
                               city_type = "msa",
@@ -865,11 +853,6 @@ kable(top_avg_merged, "latex", booktabs = TRUE) %>%
 #   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
 # Shifting sample --------------------------------------------------------
-fit_test <- executor(pre_year_vec = c(1990, 2004),
-                     post_year_vec = c(2005, 2014),
-                     treatment_year = 1999,
-                     pre_periods = 9)
-
 shift_sample <- function(sample_length, pre_periods){
   init_year <- c(1976:(2015-sample_length+1))
   
@@ -905,13 +888,11 @@ shift_sample <- function(sample_length, pre_periods){
   )
   
   results <- map_dfr(fits, function(model) {
-    coefs <- summary(model[["model_fit"]])$coefficients
+    coefs <- dfadjustSE(model[["model_fit"]])[["coefficients"]]
     
     tibble(
       coefficient = coefs["bt_ratio_std", "Estimate"],
-      standard_error = coefs["bt_ratio_std", "Std. Error"],
-      t_value = coefs["bt_ratio_std", "t value"],
-      p_value = coefs["bt_ratio_std", "Pr(>|t|)"]
+      standard_error = coefs["bt_ratio_std", "Adj. se"]
     ) %>%
       bind_cols(model[["year_data"]])
     
@@ -988,13 +969,11 @@ shift_post <- function(treatment_year, increment, pre_periods){
   )
   
   results <- map_dfr(fits, function(model) {
-    coefs <- summary(model[["model_fit"]])$coefficients
+    coefs <- dfadjustSE(model[["model_fit"]])[["coefficients"]]
     
     tibble(
       coefficient = coefs["bt_ratio_std", "Estimate"],
-      standard_error = coefs["bt_ratio_std", "Std. Error"],
-      t_value = coefs["bt_ratio_std", "t value"],
-      p_value = coefs["bt_ratio_std", "Pr(>|t|)"]
+      standard_error = coefs["bt_ratio_std", "Adj. se"]
     ) %>%
       bind_cols(model[["year_data"]])
     
