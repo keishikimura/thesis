@@ -125,6 +125,20 @@ gov_index <- function(treatment_year, pre_periods, class_var, city_var){
 }
 
 # Summary
+# Population --------------------------------------------------------------
+pop <- read_csv("AI/data/generated/populationMSA.csv") %>%
+  #Manually recode Los Angeles MSA and others
+  mutate(msa = paste0("C", as.character(msa/10)),
+         msa = ifelse(msa == "C3110", "C3108", msa),
+         msa = ifelse(msa == "C4206", "C4220", msa),
+         msa = ifelse(msa == "C4694", "C4268", msa))
+# Regions -----------------------------------------------------------------
+msa_to_regions <- read_csv("AI/data/generated/region_crosswalk.csv") %>%
+  select(MSA.Code, Division, Region) %>%
+  group_by(MSA.Code) %>%
+  slice_head(n=1) %>%
+  ungroup()
+
 # Sampling ----------------------------------------------------------------
 #Helper function to create samples
 by_class_helper <- function(df, class_var, treatment_year, pre_periods, 
@@ -178,6 +192,8 @@ by_class_helper <- function(df, class_var, treatment_year, pre_periods,
     all_citation %>% arrange(desc(bt_ratio)) %>%
       ##Must have at least 10 patents over pre-period
       filter(count >= 10) %>%
+      #(Warning): This is MSA-specific
+      filter(!grepl("MicroSA", msaname_inventor)) %>%
       #Sample size: 10
       top_10(all_cities) %>%
       rank_group(all_cities)
@@ -349,20 +365,7 @@ graphical(1999, 9, "msa", 1)
 graphical(2004, 9, "msa", 1)
 graphical(2009, 9, "msa", 1)
 
-# Main model -------------------------------------------------------------------
-pop <- read_csv("AI/data/generated/populationMSA.csv") %>%
-  #Manually recode Los Angeles MSA and others
-  mutate(msa = paste0("C", as.character(msa/10)),
-         msa = ifelse(msa == "C3110", "C3108", msa),
-         msa = ifelse(msa == "C4206", "C4220", msa),
-         msa = ifelse(msa == "C4694", "C4268", msa))
-
-msa_to_regions <- read_csv("AI/data/generated/region_crosswalk.csv") %>%
-  select(MSA.Code, Division, Region) %>%
-  group_by(MSA.Code) %>%
-  slice_head(n=1) %>%
-  ungroup()
-
+# Main Model -------------------------------------------------------------------
 modeldta_maker <- function(pre_year_vec, post_year_vec, city_type,
                            treatment_year, pre_periods, plot_graphs = TRUE,
                            all_cities = FALSE, excl = FALSE, num_cities = 10,
@@ -620,8 +623,6 @@ fit_30_1999_2_add <- executor(pre_year_vec = c(1985, 1999),
                         extra_reg =  c("class", "Division", "univ_index", "gov_index", "darpa_index"))
 summary(fit_30_1999_2_add)
 dfadjustSE(fit_30_1999_2_add)
-
-
 
 # LOO ---------------------------------------------------------------------
 
