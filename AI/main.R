@@ -9,7 +9,7 @@ library(kableExtra)
 library(scales)
 
 # Merge datasets ------------------------------------------------------
-citation_dta <- read_csv("AI/data/generated/citation_counts.csv")
+citation_dta <- read_csv("AI/data/generated/citation_outside.csv")
 
 dta_csa <- read_csv("AI/data/generated/AIpatentCSA.csv") %>%
   rename(csa_inventor = city_inventor,
@@ -48,7 +48,8 @@ dta_all <- dta_csa %>%
 
 dta_all_merged <- dta_all %>%
   left_join(citation_dta, by = c("doc_id"="citation_patent_id")) %>%
-  rename(forward_citations = count) %>%
+  rename(forward_citations = count,
+         outside_citations = sum_outside) %>%
   mutate(
     pub_dt = ymd(pub_dt),
     filing_date = ymd(filing_date),
@@ -59,7 +60,8 @@ dta_all_merged <- dta_all %>%
     predict50_any_ai == 1
   ) %>%
   mutate(
-    forward_citations = replace_na(forward_citations, 0)
+    forward_citations = replace_na(forward_citations, 0),
+    outside_citations = replace_na(outside_citations, 0)
   ) %>%
   #Cut-off years
   filter(
@@ -143,14 +145,16 @@ msa_to_regions <- read_csv("AI/data/generated/region_crosswalk.csv") %>%
 #Helper function to create samples
 by_class_helper <- function(df, class_var, treatment_year, pre_periods, 
                             city_var,cityname_var, method, all_cities = FALSE,
-                            num_cities = 10){
+                            num_cities = 10, outside = FALSE){
+  
+  citation_var <- ifelse(outside, "outside_citations", "forward_citations")
   
   all_citation <- df %>%
     filter(.data[[class_var]] == 1) %>%
     filter(grepl("^C[0-9]+$", .data[[city_var]])) %>%
     filter(year <= treatment_year & year >= treatment_year - pre_periods) %>%
     mutate(
-      top_1_all = forward_citations > quantile(forward_citations, 0.99)
+      top_1_all = .data[[citation_var]] > quantile(.data[[citation_var]], 0.99)
     ) %>%
     group_by(.data[[city_var]], .data[[cityname_var]]) %>%
     summarize(count = n(),
@@ -231,7 +235,7 @@ by_year_helper <- function(main_data, bt_data, class_var, city_var, cityname_var
 #Produces data and plots
 by_class <- function(class, treatment_year, pre_periods, city_type, method,
                      plot_graphs = TRUE, all_cities = FALSE, excl = FALSE,
-                     num_cities = 10){
+                     num_cities = 10, outside = FALSE){
   
   city_var <- paste0(city_type, "_inventor")
   cityname_var <- paste0(city_type, "name_inventor")
@@ -242,7 +246,7 @@ by_class <- function(class, treatment_year, pre_periods, city_type, method,
   print(city_var)
   
   all_citation_arranged <- by_class_helper(dta_all_merged_excl, class_var, treatment_year, pre_periods, 
-                                           city_var, cityname_var, method, all_cities, num_cities) %>%
+                                           city_var, cityname_var, method, all_cities, num_cities, outside) %>%
     left_join(univ_index(treatment_year, pre_periods, class_var, city_var, univcity_var),
               by = city_var) %>%
     left_join(gov_index(treatment_year, pre_periods, class_var, city_var),
@@ -369,7 +373,7 @@ graphical(2009, 9, "msa", 1)
 modeldta_maker <- function(pre_year_vec, post_year_vec, city_type,
                            treatment_year, pre_periods, plot_graphs = TRUE,
                            all_cities = FALSE, excl = FALSE, num_cities = 10,
-                           method = 1){
+                           method = 1, outside = FALSE){
   
   city_var <- paste0(city_type, "_inventor")
   cityname_var <- paste0(city_type, "name_inventor")
@@ -412,7 +416,7 @@ modeldta_maker <- function(pre_year_vec, post_year_vec, city_type,
   
   sample <- lapply(class_vec, function(x) by_class(x, treatment_year, pre_periods, city_type,
                                                    method, plot_graphs, all_cities,
-                                                   num_cities = num_cities)) %>%
+                                                   num_cities = num_cities, outside)) %>%
     bind_rows()
   
   merged <- sample %>%
@@ -440,10 +444,10 @@ executor <- function(pre_year_vec, post_year_vec, city_type = "msa",
                      treatment_year, pre_periods, extra_reg = "",
                      plot_graphs = TRUE, all_cities = FALSE,
                      share = FALSE, excl = FALSE, num_cities = 10,
-                     nopop = FALSE, method = 1){
+                     nopop = FALSE, method = 1, outside = FALSE){
   dta <- modeldta_maker(pre_year_vec, post_year_vec, city_type,
                         treatment_year, pre_periods, plot_graphs,
-                        all_cities, excl, num_cities, method) %>%
+                        all_cities, excl, num_cities, method, outside) %>%
     filter(class != "any_ai")
   
   bt_reg <- ifelse(!share, "bt_ratio_std", "bt_share")
@@ -596,8 +600,21 @@ fit_city_fe <- executor(pre_year_vec = c(1985, 1999),
                      )
 dfadjustSE(fit_city_fe)
 
+#Outside
+fit_outside <- executor(pre_year_vec = c(1985, 1999),
+                    post_year_vec = c(2000, 2014),
+                    city_type = "msa",
+                    treatment_year = 1999,
+                    pre_periods = 9,
+                    extra_reg = c("class", "Division", "univ_index_scale", 
+                                  "gov_index_scale", "darpa_index_scale"),
+                    num_cities = 10,
+                    outside = TRUE
+                    )
+dfadjustSE(fit_outside)
 
-# Second sampling method --------------------------------------------------
+
+# Second Sampling Method --------------------------------------------------
 fit_30_1999_2 <- executor(pre_year_vec = c(1985, 1999),
                         post_year_vec = c(2000, 2014),
                         city_type = "msa",
@@ -625,7 +642,6 @@ summary(fit_30_1999_2_add)
 dfadjustSE(fit_30_1999_2_add)
 
 # LOO ---------------------------------------------------------------------
-
 executor_empty <- function(dta, extra_reg = "", nopop = FALSE, share = FALSE){
   bt_reg <- ifelse(!share, "bt_ratio_std", "bt_share")
   
