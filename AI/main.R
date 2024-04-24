@@ -7,9 +7,23 @@ library(dfadjust)
 library(knitr)
 library(kableExtra)
 library(scales)
+library(stargazer)
 
 # Merge datasets ------------------------------------------------------
 citation_dta <- read_csv("AI/data/generated/citation_outside.csv")
+
+cum_citations <- function(lag){
+  cit_varname <- paste0("count_", as.character(lag))
+  
+  df <- read_csv("AI/data/generated/citation_cum.csv") %>%
+    filter(citation_lag == lag) %>%
+    select(-citation_lag) %>%
+    rename(!!cit_varname := cumulative_count)
+}
+
+citation_cum_24 <- cum_citations(24)
+citation_cum_18 <- cum_citations(18)
+citation_cum_34 <- cum_citations(34)
 
 dta_csa <- read_csv("AI/data/generated/AIpatentCSA.csv") %>%
   rename(csa_inventor = city_inventor,
@@ -47,7 +61,14 @@ dta_all <- dta_csa %>%
   left_join(dta_msa, by = "doc_id")
 
 dta_all_merged <- dta_all %>%
+  #Filter out evo
+  filter(rowSums(select(., predict50_ml, predict50_nlp, predict50_planning,
+                        predict50_kr, predict50_hardware, predict50_speech,
+                        predict50_vision) == 0) != 7) %>%
   left_join(citation_dta, by = c("doc_id"="citation_patent_id")) %>%
+  left_join(citation_cum_24, by = c("doc_id"="citation_patent_id")) %>%
+  left_join(citation_cum_18, by = c("doc_id"="citation_patent_id")) %>%
+  left_join(citation_cum_34, by = c("doc_id"="citation_patent_id")) %>%
   rename(forward_citations = count,
          outside_citations = sum_outside) %>%
   mutate(
@@ -61,7 +82,10 @@ dta_all_merged <- dta_all %>%
   ) %>%
   mutate(
     forward_citations = replace_na(forward_citations, 0),
-    outside_citations = replace_na(outside_citations, 0)
+    outside_citations = replace_na(outside_citations, 0),
+    count_24 = replace_na(count_24, 0),
+    count_18 = replace_na(count_18, 0),
+    count_34 = replace_na(count_34, 0)
   ) %>%
   #Cut-off years
   filter(
@@ -145,9 +169,7 @@ msa_to_regions <- read_csv("AI/data/generated/region_crosswalk.csv") %>%
 #Helper function to create samples
 by_class_helper <- function(df, class_var, treatment_year, pre_periods, 
                             city_var,cityname_var, method, all_cities = FALSE,
-                            num_cities = 10, outside = FALSE){
-  
-  citation_var <- ifelse(outside, "outside_citations", "forward_citations")
+                            num_cities = 10, citation_var = "forward_citations"){
   
   all_citation <- df %>%
     filter(.data[[class_var]] == 1) %>%
@@ -235,7 +257,7 @@ by_year_helper <- function(main_data, bt_data, class_var, city_var, cityname_var
 #Produces data and plots
 by_class <- function(class, treatment_year, pre_periods, city_type, method,
                      plot_graphs = TRUE, all_cities = FALSE, excl = FALSE,
-                     num_cities = 10, outside = FALSE){
+                     num_cities = 10, citation_var = "forward_citations"){
   
   city_var <- paste0(city_type, "_inventor")
   cityname_var <- paste0(city_type, "name_inventor")
@@ -243,10 +265,8 @@ by_class <- function(class, treatment_year, pre_periods, city_type, method,
   class_var <- ifelse(excl, paste0(class, "_indic"), 
                       paste0("predict50_", class))
   
-  print(city_var)
-  
   all_citation_arranged <- by_class_helper(dta_all_merged_excl, class_var, treatment_year, pre_periods, 
-                                           city_var, cityname_var, method, all_cities, num_cities, outside) %>%
+                                           city_var, cityname_var, method, all_cities, num_cities, citation_var) %>%
     left_join(univ_index(treatment_year, pre_periods, class_var, city_var, univcity_var),
               by = city_var) %>%
     left_join(gov_index(treatment_year, pre_periods, class_var, city_var),
@@ -373,7 +393,7 @@ graphical(2009, 9, "msa", 1)
 modeldta_maker <- function(pre_year_vec, post_year_vec, city_type,
                            treatment_year, pre_periods, plot_graphs = TRUE,
                            all_cities = FALSE, excl = FALSE, num_cities = 10,
-                           method = 1, outside = FALSE){
+                           method = 1, citation_var = "forward_citations"){
   
   city_var <- paste0(city_type, "_inventor")
   cityname_var <- paste0(city_type, "name_inventor")
@@ -415,8 +435,8 @@ modeldta_maker <- function(pre_year_vec, post_year_vec, city_type,
     rename(post_count = count)
   
   sample <- lapply(class_vec, function(x) by_class(x, treatment_year, pre_periods, city_type,
-                                                   method, plot_graphs, all_cities,
-                                                   num_cities = num_cities, outside)) %>%
+                                                   method, plot_graphs, all_cities, excl,
+                                                   num_cities = num_cities, citation_var)) %>%
     bind_rows()
   
   merged <- sample %>%
@@ -444,10 +464,10 @@ executor <- function(pre_year_vec, post_year_vec, city_type = "msa",
                      treatment_year, pre_periods, extra_reg = "",
                      plot_graphs = TRUE, all_cities = FALSE,
                      share = FALSE, excl = FALSE, num_cities = 10,
-                     nopop = FALSE, method = 1, outside = FALSE){
+                     nopop = FALSE, method = 1, citation_var = "forward_citations"){
   dta <- modeldta_maker(pre_year_vec, post_year_vec, city_type,
                         treatment_year, pre_periods, plot_graphs,
-                        all_cities, excl, num_cities, method, outside) %>%
+                        all_cities, excl, num_cities, method, citation_var) %>%
     filter(class != "any_ai")
   
   bt_reg <- ifelse(!share, "bt_ratio_std", "bt_share")
@@ -467,7 +487,6 @@ executor <- function(pre_year_vec, post_year_vec, city_type = "msa",
   fit <- lm(as.formula(f), data = dta)
   return(fit)
 }
-
 
 # Model Execution ---------------------------------------------------------
 #Main (20)
@@ -535,6 +554,8 @@ fit_30_1999_add_share <- executor(pre_year_vec = c(1985, 1999),
 summary(fit_30_1999_add_share)
 dfadjustSE(fit_30_1999_add_share)
 
+
+# Robustness checks -------------------------------------------------------
 #All cities
 model_dta_all <- modeldta_maker(pre_year_vec = c(1985, 1999),
                                 post_year_vec = c(2000, 2014),
@@ -613,6 +634,35 @@ fit_outside <- executor(pre_year_vec = c(1985, 1999),
                     )
 dfadjustSE(fit_outside)
 
+#Time window
+fit_24 <- executor(pre_year_vec = c(1985, 1999),
+                   post_year_vec = c(2000, 2014),
+                   city_type = "msa",
+                   treatment_year = 1999,
+                   pre_periods = 9,
+                   extra_reg = c("class", "Division", "univ_index_scale", 
+                                "gov_index_scale", "darpa_index_scale"),
+                   num_cities = 10,
+                   citation_var = "count_24"
+                     )
+dfadjustSE(fit_24)
+
+stargazer(fit_30_1999_add, fit_24, type = "latex",
+          title = "Main Regression Results",
+          label = "table:main",
+          covariate.labels = c("Breakthrough ratio", "Log population", "Log pop. growth", 
+                               "Log count", "Univ. Strength", "Gov. Interest", "DARPA Interest"),
+          omit = c("Constant", "^class", "^Division"),
+          omit.stat = c("LL", "ser", "f", "rsq"),
+          add.lines = list(c("Class FE", "Yes", "Yes", "Yes", "Yes"),
+                           c("Division FE", "Yes", "Yes", "Yes", "Yes"),
+                           c("Class x Division FE", "No", "No", "No", "No"),
+                           c("City FE", "No", "No", "No", "No")),
+          column.labels = c("(1)", "(2)"),
+          dep.var.caption = "",
+          dep.var.labels.include = FALSE,
+          intercept.bottom = FALSE,
+          digits = 5)
 
 # Second Sampling Method --------------------------------------------------
 fit_30_1999_2 <- executor(pre_year_vec = c(1985, 1999),
@@ -870,7 +920,7 @@ kable(top_avg_merged, "latex", booktabs = TRUE) %>%
 #   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
 # Shifting sample --------------------------------------------------------
-shift_sample <- function(sample_length, pre_periods){
+shift_sample <- function(sample_length, pre_periods, citation_var = "forward_citations"){
   init_year <- c(1976:(2015-sample_length+1))
   
   fits <- lapply(init_year, function(x) {
@@ -886,7 +936,9 @@ shift_sample <- function(sample_length, pre_periods){
                           treatment_year = treat_end,
                           pre_periods = pre_periods,
                           extra_reg = c("class", "Division"),
-                          plot_graphs = FALSE)
+                          plot_graphs = FALSE,
+                          citation_var = citation_var
+                          )
     
     year_data <- tibble(
       pre_start = pre_start,
@@ -917,6 +969,8 @@ shift_sample <- function(sample_length, pre_periods){
   
   return(results)
 }
+results_30_24 <- shift_sample(30, 9, "count_24")
+results_20_18 <- shift_sample(20, 9, "count_18")
 results_30 <- shift_sample(30, 9)
 results_20 <- shift_sample(20, 9)
 
@@ -940,6 +994,24 @@ ggplot(results_30, aes(x = post_start, y = coefficient)) +
        y = "Coefficient")  + 
   scale_x_continuous(breaks= pretty_breaks())
 
+ggplot(results_20_18, aes(x = post_start, y = coefficient)) +
+  geom_point() +
+  geom_errorbar(aes(ymin = coefficient - 1.96* standard_error, 
+                    ymax = coefficient + 1.96* standard_error), width = 0.2) +
+  theme_minimal() +
+  labs(x = "Post-period start year",
+       y = "Coefficient") + 
+  scale_x_continuous(breaks= pretty_breaks())
+
+ggplot(results_30_24, aes(x = post_start, y = coefficient)) +
+  geom_point() +
+  geom_errorbar(aes(ymin = coefficient - 1.96* standard_error, 
+                    ymax = coefficient + 1.96* standard_error), width = 0.2) +
+  theme_minimal() +
+  labs(x = "Post-period start year",
+       y = "Coefficient")  + 
+  scale_x_continuous(breaks= pretty_breaks())
+
 ggplot(results_shift_merged, aes(x = post_start, y = coefficient)) +
   geom_point() +
   geom_errorbar(aes(ymin = coefficient - 1.96* standard_error, 
@@ -950,7 +1022,8 @@ ggplot(results_shift_merged, aes(x = post_start, y = coefficient)) +
        y = "Coefficient")
 
 # Shifting post-period ----------------------------------------------------
-shift_post <- function(treatment_year, increment, pre_periods){
+shift_post <- function(treatment_year, increment, pre_periods, 
+                       citation_var = "forward_citations"){
   treat_start <- treatment_year - pre_periods
   treat_end <- treatment_year 
 
@@ -967,7 +1040,8 @@ shift_post <- function(treatment_year, increment, pre_periods){
                           treatment_year = treat_end,
                           pre_periods = pre_periods,
                           plot_graphs = FALSE,
-                          extra_reg = c("class", "Division"))
+                          extra_reg = c("class", "Division"),
+                          citation_var = citation_var)
     
     year_data <- tibble(
       pre_start = pre_start,
@@ -1006,6 +1080,15 @@ shift_30_1990 <- shift_post(treatment_year = 1989,
                             increment = 30,
                             pre_periods = 9)
 
+shift_20_1990_34 <- shift_post(treatment_year = 1989,
+                            increment = 20,
+                            pre_periods = 9,
+                            citation_var = "count_34")
+shift_30_1990_34 <- shift_post(treatment_year = 1989,
+                            increment = 30,
+                            pre_periods = 9,
+                            citation_var = "count_34")
+
 shift_post_merged <- rbind(shift_20_1990, shift_30_1990)
 
 ggplot(shift_20_1990, aes(x = post_start, y = coefficient)) +
@@ -1017,6 +1100,22 @@ ggplot(shift_20_1990, aes(x = post_start, y = coefficient)) +
        y = "Coefficient")
 
 ggplot(shift_30_1990, aes(x = post_start, y = coefficient)) +
+  geom_point() +
+  geom_errorbar(aes(ymin = coefficient - 1.96* standard_error, 
+                    ymax = coefficient + 1.96* standard_error), width = 0.2) +
+  theme_minimal() +
+  labs(x = "Post-period start year",
+       y = "Coefficient")
+
+ggplot(shift_20_1990_34, aes(x = post_start, y = coefficient)) +
+  geom_point() +
+  geom_errorbar(aes(ymin = coefficient - 1.96* standard_error, 
+                    ymax = coefficient + 1.96* standard_error), width = 0.2) +
+  theme_minimal() +
+  labs(x = "Post-period start year",
+       y = "Coefficient")
+
+ggplot(shift_30_1990_34, aes(x = post_start, y = coefficient)) +
   geom_point() +
   geom_errorbar(aes(ymin = coefficient - 1.96* standard_error, 
                     ymax = coefficient + 1.96* standard_error), width = 0.2) +
