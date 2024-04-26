@@ -3,11 +3,11 @@ library(readr)
 library(lubridate)
 
 # Produce citation counts -------------------------------------------------
-citations <- read_tsv("AI/data/raw/uspto/g_us_patent_citation.tsv") %>%
-  group_by(citation_patent_id) %>%
-  summarize(count = n())
-
-write_csv(citations, "AI/data/generated/citation_counts.csv")
+# citations <- read_tsv("AI/data/raw/uspto/g_us_patent_citation.tsv") %>%
+#   group_by(citation_patent_id) %>%
+#   summarize(count = n())
+# 
+# write_csv(citations, "AI/data/generated/citation_counts.csv")
 
 # Outside citations -------------------------------------------------------
 #AI data

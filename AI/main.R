@@ -14,15 +14,20 @@ citation_dta <- read_csv("AI/data/generated/citation_outside.csv")
 
 cum_citations <- function(lag){
   cit_varname <- paste0("count_", as.character(lag))
+  out_varname <- paste0("out_", as.character(lag))
   
-  df <- read_csv("AI/data/generated/citation_cum.csv") %>%
+  df <- read_csv("AI/data/generated/cum_citations_outside.csv") %>%
     filter(citation_lag == lag) %>%
     select(-citation_lag) %>%
-    rename(!!cit_varname := cumulative_count)
+    rename(!!cit_varname := cum_count,
+           !!out_varname := cum_outside)
 }
 
-citation_cum_24 <- cum_citations(24)
+citation_cum_4 <- cum_citations(4)
+citation_cum_9 <- cum_citations(9)
+citation_cum_14 <- cum_citations(14)
 citation_cum_18 <- cum_citations(18)
+citation_cum_24 <- cum_citations(24)
 citation_cum_34 <- cum_citations(34)
 
 dta_csa <- read_csv("AI/data/generated/AIpatentCSA.csv") %>%
@@ -66,8 +71,11 @@ dta_all_merged <- dta_all %>%
                         predict50_kr, predict50_hardware, predict50_speech,
                         predict50_vision) == 0) != 7) %>%
   left_join(citation_dta, by = c("doc_id"="citation_patent_id")) %>%
-  left_join(citation_cum_24, by = c("doc_id"="citation_patent_id")) %>%
+  left_join(citation_cum_4, by = c("doc_id"="citation_patent_id")) %>%
+  left_join(citation_cum_9, by = c("doc_id"="citation_patent_id")) %>%
+  left_join(citation_cum_14, by = c("doc_id"="citation_patent_id")) %>%
   left_join(citation_cum_18, by = c("doc_id"="citation_patent_id")) %>%
+  left_join(citation_cum_24, by = c("doc_id"="citation_patent_id")) %>%
   left_join(citation_cum_34, by = c("doc_id"="citation_patent_id")) %>%
   rename(forward_citations = count,
          outside_citations = sum_outside) %>%
@@ -83,9 +91,17 @@ dta_all_merged <- dta_all %>%
   mutate(
     forward_citations = replace_na(forward_citations, 0),
     outside_citations = replace_na(outside_citations, 0),
-    count_24 = replace_na(count_24, 0),
+    count_4 = replace_na(count_4, 0),
+    count_9 = replace_na(count_9, 0),
+    count_14 = replace_na(count_14, 0),
     count_18 = replace_na(count_18, 0),
-    count_34 = replace_na(count_34, 0)
+    count_24 = replace_na(count_24, 0),
+    count_34 = replace_na(count_34, 0),
+    out_4 = replace_na(out_4, 0),
+    out_14 = replace_na(out_14, 0),
+    out_18 = replace_na(out_18, 0),
+    out_24 = replace_na(out_24, 0),
+    out_34 = replace_na(out_34, 0)
   ) %>%
   #Cut-off years
   filter(
@@ -109,7 +125,19 @@ dta_all_merged_excl <- dta_all_merged %>%
          any_ai_indic = predict50_any_ai
   ) %>%
   ungroup() %>%
-  select(-max_val)
+  select(-max_val) %>%
+  mutate(
+    #6 tech clusters; 5 big cities
+    tech_cluster = (csa_inventor %in% c("CS488", "CS148", "CS500", "CS216") |  
+            msa_inventor %in% c("C4174", "C1242")),
+    big_city = (csa_inventor %in% c("CS408", "CS348", "CS176", "CS428",
+                                    "CS220")) & !tech_cluster,
+    other = !(tech_cluster | big_city),
+    key_csa = ifelse((tech_cluster|big_city), 
+                      ifelse(msa_inventor %in% c("C4174", "C1242"), 
+                             msa_inventor, csa_inventor), 
+                      NA)
+  )
 
 # University --------------------------------------------------------------
 univ_index <- function(treatment_year, pre_periods, class_var, city_var, univcity_var){
@@ -167,18 +195,20 @@ msa_to_regions <- read_csv("AI/data/generated/region_crosswalk.csv") %>%
 
 # Sampling ----------------------------------------------------------------
 #Helper function to create samples
+
 by_class_helper <- function(df, class_var, treatment_year, pre_periods, 
                             city_var,cityname_var, method, all_cities = FALSE,
                             num_cities = 10, citation_var = "forward_citations"){
   
   all_citation <- df %>%
     filter(.data[[class_var]] == 1) %>%
-    filter(grepl("^C[0-9]+$", .data[[city_var]])) %>%
     filter(year <= treatment_year & year >= treatment_year - pre_periods) %>%
     mutate(
       top_1_all = .data[[citation_var]] > quantile(.data[[citation_var]], 0.99)
     ) %>%
-    group_by(.data[[city_var]], .data[[cityname_var]]) %>%
+    filter(grepl("^C[0-9]+$", .data[[city_var]])) %>%
+    group_by(.data[[city_var]], .data[[cityname_var]], tech_cluster, big_city, other,
+             key_csa) %>%
     summarize(count = n(),
               count_top_1 = sum(top_1_all)
     ) %>%
@@ -305,8 +335,10 @@ by_class <- function(class, treatment_year, pre_periods, city_type, method,
   return(all_citation_arranged)
 }
 
+
+
 #Patent count data + graphs
-# any_ai <- by_class("any_ai",1999, 4, "msa",1)
+any_ai <- by_class("any_ai",1999, 4, "msa",1)
 # nlp <- by_class("nlp", 1984, 5, "msa", 1)
 # kr <- by_class("kr",1984, 5, "msa", 1)
 # planning <- by_class("planning",1984, 5, "msa", 1)
@@ -320,7 +352,7 @@ year_totals_excl <- dta_all_merged_excl %>%
   group_by(year) %>%
   summarize(count = n())
 
-graphical <- function(treatment_year, pre_periods, city_type, method){
+graphical <- function(treatment_year, pre_periods, city_type, method, citation_var){
   class_vec <- c("nlp","kr","planning","hardware","vision", "speech", "ml")
   class_var_vec <- paste0(class_vec, "_indic")
   city_var <- paste0(city_type, "_inventor")
@@ -330,7 +362,8 @@ graphical <- function(treatment_year, pre_periods, city_type, method){
                               city_var, cityname_var, method){
     
     bt_dta <- by_class_helper(df, class_var, treatment_year, pre_periods, 
-                              city_var, cityname_var, method)
+                              city_var, cityname_var, method, 
+                              citation_var = citation_var)
     out <- by_year_helper(df, bt_dta, class_var, city_var, cityname_var)
     
     return(out)
@@ -338,7 +371,7 @@ graphical <- function(treatment_year, pre_periods, city_type, method){
   
   dta_excl <- lapply(class_var_vec, function(x) combined_helper(dta_all_merged_excl,
                                               x, treatment_year, pre_periods, 
-                                              city_var,cityname_var, method)) %>%
+                                              city_var, cityname_var, method)) %>%
     Map(function(df, class){
       df %>% 
         select(-group_year_share) %>%
@@ -384,10 +417,22 @@ graphical <- function(treatment_year, pre_periods, city_type, method){
   return(dta_excl)
 }
 
-graphical(1994, 9, "msa", 1)
-graphical(1999, 9, "msa", 1)
-graphical(2004, 9, "msa", 1)
-graphical(2009, 9, "msa", 1)
+graphical(1999, 9, "msa", 1, citation_var = "count_24")
+
+graphical(1994, 9, "msa", 1, citation_var = "count_14")
+graphical(1999, 9, "msa", 1, citation_var = "count_14")
+graphical(2004, 9, "msa", 1, citation_var = "count_14")
+graphical(2009, 9, "msa", 1, citation_var = "count_14")
+
+graphical(1994, 9, "msa", 1, citation_var = "count_9")
+graphical(1999, 9, "msa", 1, citation_var = "count_9")
+graphical(2004, 9, "msa", 1, citation_var = "count_9")
+graphical(2009, 9, "msa", 1, citation_var = "count_9")
+
+graphical(1994, 9, "msa", 1, citation_var = "count_4")
+graphical(1999, 9, "msa", 1, citation_var = "count_4")
+graphical(2004, 9, "msa", 1, citation_var = "count_4")
+graphical(2009, 9, "msa", 1, citation_var = "count_4")
 
 # Main Model -------------------------------------------------------------------
 modeldta_maker <- function(pre_year_vec, post_year_vec, city_type,
@@ -562,7 +607,8 @@ model_dta_all <- modeldta_maker(pre_year_vec = c(1985, 1999),
                                 city_type = "msa",
                                 treatment_year = 1999,
                                 pre_periods = 9,
-                                all_cities = TRUE) %>%
+                                all_cities = TRUE,
+                                citation_var = "count_24") %>%
   filter(!grepl("MicroSA", msaname_inventor)) %>%
   #Filtering out small cities without matching population
   #and cities without post period patenting (in interest of time)
@@ -630,7 +676,7 @@ fit_outside <- executor(pre_year_vec = c(1985, 1999),
                     extra_reg = c("class", "Division", "univ_index_scale", 
                                   "gov_index_scale", "darpa_index_scale"),
                     num_cities = 10,
-                    outside = TRUE
+                    citation_var = "out_24"
                     )
 dfadjustSE(fit_outside)
 
@@ -760,11 +806,7 @@ loo_test <- function(pre_year_vec = c(1985, 1999),
 
 loo <- loo_test()
 
-# Summary stats -----------------------------------------------------------
-
-#All cities
-
-##Ranking top cities
+# Summary stats (all) --------------------------------------------------------
 
 ##Averages
 avg <- model_dta_all %>%
@@ -821,15 +863,15 @@ stats_all <- stats_by_growth %>%
 
 stats_merged <- rbind(stats_all, stats_median, stats_quintile)
 
-stats_merged <- stats_merged[, c("type", "bt_ratio_mean", "bt_share_mean",
+stats_merged <- stats_merged[, c("type", "bt_ratio_mean",
                                  "univ_index_mean", "gov_index_mean", "darpa_index_mean")] %>% 
   mutate_if(is.numeric, round, 2)
 
-kable(stats_merged, "latex", booktabs = TRUE, caption = "Descriptive statistics for all cities.") %>%
+kable(stats_merged, "latex", booktabs = TRUE, caption = "Descriptive statistics for all cities.",
+      linesep = "") %>%
   kable_styling(latex_options = c("scale_down", "hold_position"))
 
-#Top 25
-
+# Summary stats (top 25) --------------------------------------------------
 pre_total <- dta_all_merged_excl %>%
   filter(year <= 1999 & year >= 1985) %>%
   nrow()
@@ -854,39 +896,232 @@ ranked <- model_dta_all %>%
   slice_head(n=25)
 
 top_avg <- ranked %>%
-  select(-c(msaname_inventor, pre_rank, post_rank, rank_change)) %>% 
+  select(-c(msaname_inventor, pre_rank, post_rank, rank_change, bt_share_mean,
+            pre_count, post_count, pre_share, post_share)) %>% 
+  summarise_all(mean)
+
+top_avg_noks <- ranked %>%
+  filter(msaname_inventor != "Kansas City, MO-KS MSA") %>%
+  select(-c(msaname_inventor, pre_rank, post_rank, rank_change, bt_share_mean,
+            pre_count, post_count, pre_share, post_share)) %>% 
   summarise_all(mean)
 
 top_up_avg <- ranked %>%
   filter(rank_change > 0) %>%
-  select(-c(msaname_inventor, pre_rank, post_rank, rank_change)) %>% 
+  select(-c(msaname_inventor, pre_rank, post_rank, rank_change, bt_share_mean,
+            pre_count, post_count, pre_share, post_share)) %>% 
+  summarise_all(mean)
+
+top_up_avg_noks <- ranked %>%
+  filter(rank_change > 0) %>%
+  filter(msaname_inventor != "Kansas City, MO-KS MSA") %>%
+  select(-c(msaname_inventor, pre_rank, post_rank, rank_change, bt_share_mean,
+            pre_count, post_count, pre_share, post_share)) %>% 
   summarise_all(mean)
 
 top_down_avg <- ranked %>%
   filter(rank_change < 0) %>%
-  select(-c(msaname_inventor, pre_rank, post_rank, rank_change)) %>% 
+  select(-c(msaname_inventor, pre_rank, post_rank, rank_change, bt_share_mean,
+            pre_count, post_count, pre_share, post_share)) %>% 
   summarise_all(mean)
 
-top_avg_merged <- rbind(top_avg, top_up_avg, top_down_avg) %>%
+top_avg_merged <- rbind(top_avg, top_up_avg, top_down_avg, top_avg_noks, top_up_avg_noks) %>%
   mutate_if(is.numeric, round, 2)
+
+# ranked <- ranked %>%
+#   mutate_if(is.numeric, round, 2) %>%
+#   mutate(pre_rankshare = paste(pre_rank, " (", pre_share, ")", sep=""),
+#          post_rankshare = paste(post_rank, " (", post_share, ")", sep="")) %>%
+#   select(-c(pre_rank, pre_share, post_rank, post_share))
 
 ranked <- ranked %>%
   mutate_if(is.numeric, round, 2) %>%
-  mutate(pre_rankshare = paste(pre_rank, " (", pre_share, ")", sep=""),
-         post_rankshare = paste(post_rank, " (", post_share, ")", sep="")) %>%
-  select(-c(pre_rank, pre_share, post_rank, post_share))
+  select(-c(pre_share, post_share)) %>%
+  mutate(rank_change = ifelse(rank_change > 0, 
+                              paste0("+", as.character(rank_change)), rank_change))
 
-ranked <- ranked[, c("msaname_inventor", "pre_rankshare", "post_rankshare", "rank_change", "bt_ratio_mean", "bt_share_mean",
+ranked <- ranked[, c("msaname_inventor", "pre_rank", "post_rank", "rank_change", "bt_ratio_mean",
                      "univ_index_mean", "gov_index_mean", "darpa_index_mean")]
   
 
-kable(ranked, "latex", booktabs = TRUE, caption = "Descriptive statistics for prominent patenting cities.") %>%
+kable(ranked, "latex", booktabs = TRUE, caption = "Descriptive statistics for prominent patenting cities.",
+      linesep = "") %>%
   kable_styling(latex_options = c("scale_down", "HOLD_position")) %>%
-  add_header_above(c(" " = 1, "City Rank" = 3, " " = 5))
+  add_header_above(c(" " = 1, "City Rank" = 3, " " = 4))
 
 kable(top_avg_merged, "latex", booktabs = TRUE) %>%
-  kable_styling(latex_options = c("scale_down", "HOLD_position"))
+  kable_styling(latex_options = c("scale_down", "HOLD_position")) %>%
+  add_footnote("Footnote 1", threeparttable = TRUE)
 
+
+# Summary stats (tech) ----------------------------------------------------
+
+# List of strings to detect
+tech_csa <- c("CS488", "CS148", "CS500", "CS216")
+tech_msa <- c("C4174", "C1242")
+big_csa <- c("CS408", "CS348", "CS176", "CS428", "CS220")
+
+# Function to check for matches using grepl
+find_matches <- function(text, patterns) {
+  # Check if any pattern is found in the text
+  matches <- sapply(patterns, function(pattern) grepl(pattern, text))
+  # Return only the matching patterns
+  paste(patterns[matches], collapse = ", ")
+}
+
+univ_tech <- dta_all_merged_excl %>% 
+  filter(univ == 1) %>%
+  mutate(matches = pmap_chr(list(csa_univ, msa_univ), function(c1, c2) {
+        # Find matches in each column with different search strings
+        matches1 <- find_matches(c1, c(tech_csa, big_csa))
+        matches2 <- find_matches(c2, tech_msa)
+        # Combine and keep unique matches from both columns
+        unique_matches <- unique(c(matches1, matches2))
+        # Filter out empty strings and join with commas
+        matches_string <- paste(unique_matches[unique_matches != ""], collapse = ", ")
+        # Return an empty string if no matches are found
+        ifelse(matches_string == "", NA, matches_string)
+        })
+        )
+  
+univ_index_tech <- function(treatment_year, pre_periods, class_var){
+  msa_index <- univ_tech %>%
+    filter(.data[[class_var]] == 1) %>%
+    separate_rows(matches, sep = ",\\s*") %>%
+    filter(year <= treatment_year & year >= treatment_year - pre_periods) %>%
+    group_by(matches) %>%
+    summarize(univ_index = n()) %>%
+    rename(key_csa = matches)
+  
+  return(msa_index)
+}
+
+gov_index_tech <- function(treatment_year, pre_periods, class_var){
+  
+  gov_index <- dta_all_merged_excl %>%
+    filter(.data[[class_var]] == 1) %>%
+    left_join(gov_interest, by = c("doc_id" = "patent_id")) %>%
+    mutate(
+      gov = !is.na(fedagency_name),
+      darpa = ifelse(is.na(level_two), FALSE, 
+                     level_two == "Defense Advanced Research Projects Agency"),
+      dod = ifelse(is.na(level_one), FALSE, 
+                   level_one == "Department of Defense")
+    ) %>%
+    filter(year <= treatment_year & year >= treatment_year - pre_periods) %>%
+    filter(tech_cluster | big_city) %>%
+    group_by(tech_cluster, big_city, key_csa) %>%
+    summarize(gov_index = sum(gov),
+              darpa_index = sum(darpa),
+              dod_index = sum(dod)) %>%
+    ungroup() %>%
+    select(-c(tech_cluster, big_city))
+  
+  return(gov_index)
+}
+
+# Summary
+by_class_helper_tech <- function(df, class, treatment_year, pre_periods, 
+                                 citation_var = "forward_citations"){
+  
+  class_var <- paste0("predict50_", class)
+  
+  all_citation <- df %>%
+    filter(.data[[class_var]] == 1) %>%
+    filter(year <= treatment_year & year >= treatment_year - pre_periods) %>%
+    mutate(
+      top_1_all = .data[[citation_var]] > quantile(.data[[citation_var]], 0.99)
+    ) %>%
+    filter(tech_cluster | big_city) %>%
+    group_by(tech_cluster, big_city, key_csa) %>%
+    summarize(count = n(),
+              count_top_1 = sum(top_1_all)
+    ) %>%
+    ungroup() %>%
+    mutate(
+      total_patents = sum(count),
+      total_top_1 = sum(count_top_1),
+      bt_ratio = (count_top_1/total_top_1)/(count/total_patents),
+      bt_share = count_top_1/total_top_1,
+      class = class
+    ) %>%
+    left_join(univ_index_tech(treatment_year, pre_periods, class_var),
+              by = "key_csa") %>%
+    left_join(gov_index_tech(treatment_year, pre_periods, class_var),
+              by = "key_csa") %>%
+    mutate(
+      univ_index = if_else(is.na(univ_index), 0 , univ_index),
+      gov_index = if_else(is.na(gov_index), 0 , gov_index),
+      darpa_index = if_else(is.na(darpa_index), 0 , darpa_index),
+      dod_index = if_else(is.na(dod_index), 0 , dod_index)
+    )
+  
+  return(all_citation)
+}
+
+by_class_helper_test <- by_class_helper_tech(dta_all_merged_excl, "any_ai", 
+                                             treatment_year = 1989, pre_periods = 9)
+
+modeldta_maker_tech <- function(pre_year_vec, post_year_vec, city_type,
+                           treatment_year, pre_periods,
+                           citation_var = "forward_citations"){
+  
+  
+  class_vec <- c("any_ai","nlp","kr","planning","hardware","vision", "speech", "ml")
+  
+  count <- function(year_vec){
+    
+    start_year <- year_vec[1]
+    end_year <- year_vec[2]
+    
+    count_helper <- function(start_year, end_year, class){
+      class_var <- ifelse(excl, paste0(class, "_indic"), 
+                          paste0("predict50_", class))
+      count_var <- paste0("count_", class)
+      
+      count_dta <- dta_all_merged_excl %>%
+        filter(tech_cluster | big_city)
+        filter(.data[[class_var]] == 1) %>%
+        filter(year <= end_year & year >= start_year) %>%
+        group_by(key_csa) %>%
+        summarize(!!count_var := n())
+      
+      return(count_dta)
+    }
+    
+    df <- lapply(class_vec, function(x) count_helper(start_year, end_year, x)) %>%
+      reduce(full_join, by = city_var)
+    
+    return(df)
+  }
+  
+  sample <- lapply(class_vec, function(x) by_class_helper_tech(dta_all_merged_excl, x, 
+                                                               treatment_year, pre_periods,
+                                                               citation_var)) %>%
+    bind_rows()
+  
+  return(sample)
+}
+
+tech_dta <-modeldta_maker_tech(pre_year_vec = c(1985, 1999),
+                                post_year_vec = c(2000, 2014),
+                                treatment_year = 1999,
+                                pre_periods = 9,
+                                citation_var = "count_24")
+
+tech_dta_summary <- tech_dta %>%
+  filter(class != "any_ai") %>%
+  group_by(tech_cluster) %>%
+  summarize(bt_ratio_mean = mean(bt_ratio),
+            univ_index_mean = mean(univ_index),
+            gov_index_mean = mean(gov_index),
+            darpa_index_mean = mean(darpa_index)
+            ) %>% 
+  mutate_if(is.numeric, round, 2)
+
+kable(tech_dta_summary, "latex", booktabs = TRUE, caption = "Descriptive statistics for tech cities.",
+      linesep = "") %>%
+  kable_styling(latex_options = c("scale_down", "hold_position"))
 
 # Co-occurrence ------------------------------------------------------------
 
@@ -1131,5 +1366,3 @@ ggplot(shift_post_merged, aes(x = post_start, y = coefficient)) +
   facet_grid(vars(increment)) + 
   labs(x = "Post-period start year",
        y = "Coefficient")
-
-# Event study -------------------------------------------------------------
