@@ -108,6 +108,20 @@ dta_all_merged <- dta_all %>%
     year >= 1976 & year <= 2015
   )
 
+csa_tech <- c("CS488", "CS148", "CS500", "CS216")
+msa_tech <- csa_dta %>%
+  filter(CSA.Code %in% csa_tech) %>%
+  select(MSA.Code, CSA.Code, CSA.Title) %>%
+  group_by(MSA.Code) %>%
+  slice_head(n=1)
+
+csa_big <- c("CS408", "CS348", "CS176", "CS428", "CS220")
+msa_big <- csa_dta %>%
+  filter(CSA.Code %in% csa_big) %>%
+  select(MSA.Code, CSA.Code, CSA.Title) %>%
+  group_by(MSA.Code) %>%
+  slice_head(n=1)
+
 #Make components mutually exclusive by taking highest p()
 dta_all_merged_excl <- dta_all_merged %>%
   rowwise() %>%
@@ -128,16 +142,17 @@ dta_all_merged_excl <- dta_all_merged %>%
   select(-max_val) %>%
   mutate(
     #6 tech clusters; 5 big cities
-    tech_cluster = (csa_inventor %in% c("CS488", "CS148", "CS500", "CS216") |  
-            msa_inventor %in% c("C4174", "C1242")),
-    big_city = (csa_inventor %in% c("CS408", "CS348", "CS176", "CS428",
-                                    "CS220")) & !tech_cluster,
-    other = !(tech_cluster | big_city),
-    key_csa = ifelse((tech_cluster|big_city), 
-                      ifelse(msa_inventor %in% c("C4174", "C1242"), 
-                             msa_inventor, csa_inventor), 
-                      NA)
-  )
+    tech_cluster = (msa_inventor %in% c(msa_tech$MSA.Code, "C4174", "C1242")),
+    big_city = (msa_inventor %in% msa_big$MSA.Code),
+    other = !(tech_cluster | big_city)
+  ) %>%
+  left_join(msa_tech, by = c("msa_inventor" = "MSA.Code")) %>%
+  left_join(msa_big, by = c("msa_inventor" = "MSA.Code")) %>%
+  mutate(
+    key_csa = ifelse(!is.na(CSA.Code.x), CSA.Code.x, CSA.Code.y),
+    key_csaname = ifelse(!is.na(CSA.Title.x), CSA.Title.x, CSA.Title.y)
+  ) %>%
+  select(-c(CSA.Code.x, CSA.Code.y, CSA.Title.x, CSA.Title.y))
 
 # University --------------------------------------------------------------
 univ_index <- function(treatment_year, pre_periods, class_var, city_var, univcity_var){
