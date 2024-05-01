@@ -8,6 +8,29 @@ library(knitr)
 library(kableExtra)
 library(scales)
 library(stargazer)
+library(readxl)
+
+# FIPS-MSA ----------------------------------------------------------------
+
+msa2013_dta <- read_csv("AI/data/raw/nber/cbsatocountycrosswalk.csv") %>%
+  filter(!is.na(y2013)) %>%
+  select(-ssacounty) %>%
+  unique()
+
+csa2013_dta <- read_excel("AI/data/raw/census/qcew-county-msa-csa-crosswalk.xlsx",
+                          sheet = 3)
+
+names(csa2013_dta)<-make.names(names(csa2013_dta),unique = TRUE)
+
+csa_dta <- msa2013_dta %>%
+  mutate(
+    fipscounty = as.numeric(fipscounty)
+  ) %>%
+  left_join(csa2013_dta, by = c("fipscounty"="County.Code")) %>%
+  rename(
+    CBSA.Code = cbsa,
+    CBSA.Title = cbsaname
+  )
 
 # Merge datasets ------------------------------------------------------
 citation_dta <- read_csv("AI/data/generated/citation_outside.csv")
@@ -149,8 +172,16 @@ dta_all_merged_excl <- dta_all_merged %>%
   left_join(msa_tech, by = c("msa_inventor" = "MSA.Code")) %>%
   left_join(msa_big, by = c("msa_inventor" = "MSA.Code")) %>%
   mutate(
-    key_csa = ifelse(!is.na(CSA.Code.x), CSA.Code.x, CSA.Code.y),
-    key_csaname = ifelse(!is.na(CSA.Title.x), CSA.Title.x, CSA.Title.y)
+    key_csa = case_when(
+      msa_inventor %in% c("C4174", "C1242") ~ msa_inventor,
+      !is.na(CSA.Code.x) ~ CSA.Code.x,
+      .default = CSA.Code.y
+    ),
+    key_csaname = case_when(
+      msa_inventor %in% c("C4174", "C1242") ~ msaname_inventor,
+      !is.na(CSA.Code.x) ~ CSA.Title.x,
+      .default = CSA.Title.y
+    )
   ) %>%
   select(-c(CSA.Code.x, CSA.Code.y, CSA.Title.x, CSA.Title.y))
 
@@ -434,6 +465,11 @@ graphical <- function(treatment_year, pre_periods, city_type, method, citation_v
 
 graphical(1999, 9, "msa", 1, citation_var = "count_24")
 
+graphical(1994, 9, "msa", 1, citation_var = "forward_citations")
+graphical(1999, 9, "msa", 1, citation_var = "forward_citations")
+graphical(2004, 9, "msa", 1, citation_var = "forward_citations")
+graphical(2009, 9, "msa", 1, citation_var = "forward_citations")
+
 graphical(1994, 9, "msa", 1, citation_var = "count_14")
 graphical(1999, 9, "msa", 1, citation_var = "count_14")
 graphical(2004, 9, "msa", 1, citation_var = "count_14")
@@ -550,14 +586,14 @@ executor <- function(pre_year_vec, post_year_vec, city_type = "msa",
 
 # Model Execution ---------------------------------------------------------
 #Main (20)
-fit_20_1999 <- executor(pre_year_vec = c(1990, 1999),
-                        post_year_vec = c(2000, 2009),
-                        city_type = "msa",
-                        treatment_year = 1999,
-                        pre_periods = 9,
-                        extra_reg = c("class", "Division"))
-robust_se <- vcovHC(fit_20_1999, type = "HC1")
-coeftest(fit_20_1999, vcov. = robust_se)
+# fit_20_1999 <- executor(pre_year_vec = c(1990, 1999),
+#                         post_year_vec = c(2000, 2009),
+#                         city_type = "msa",
+#                         treatment_year = 1999,
+#                         pre_periods = 9,
+#                         extra_reg = c("class", "Division"))
+# robust_se <- vcovHC(fit_20_1999, type = "HC1")
+# coeftest(fit_20_1999, vcov. = robust_se)
 
 #Main (30)
 fit_30_1999 <- executor(pre_year_vec = c(1985, 1999),
@@ -565,15 +601,17 @@ fit_30_1999 <- executor(pre_year_vec = c(1985, 1999),
                         city_type = "msa",
                         treatment_year = 1999,
                         pre_periods = 9,
-                        extra_reg =  c("class", "Division"))
+                        extra_reg =  c("class", "Division"),
+                        citation_var = "count_24")
 summary(fit_30_1999)
-dfadjustSE(fit_30_1999)
+df_main1 <- dfadjustSE(fit_30_1999)[["coefficients"]][, "Adj. se"]
 
 fit_30_1999_data <- modeldta_maker(pre_year_vec = c(1985, 1999),
-                                            post_year_vec = c(2000, 2014),
-                                            city_type = "msa",
-                                            treatment_year = 1999,
-                                            pre_periods = 9) %>%
+                                   post_year_vec = c(2000, 2014),
+                                   city_type = "msa",
+                                   treatment_year = 1999,
+                                   pre_periods = 9,
+                                   citation_var = "count_24") %>%
   filter(class != "any_ai")
 
 fit_30_1999_data$msaname_inventor %>% unique()
@@ -582,6 +620,39 @@ fit_30_1999_data %>%
   summarize(count= n(),
             sum_top_1 = sum(count_top_1))
 
+#Univ + gov
+fit_30_1999_add <- executor(pre_year_vec = c(1985, 1999),
+                           post_year_vec = c(2000, 2014),
+                           city_type = "msa",
+                           treatment_year = 1999,
+                           pre_periods = 9,
+                           extra_reg = c("class", "Division", "univ_index_scale", 
+                                         "gov_index_scale", "darpa_index_scale"),
+                           citation_var = "count_24")
+summary(fit_30_1999_add)
+dfadjustSE(fit_30_1999_add)
+df_main2 <- dfadjustSE(fit_30_1999_add)[["coefficients"]][, "Adj. se"]
+
+
+stargazer(fit_30_1999, fit_30_1999_add, type = "latex",
+          title = "Main Regression Results",
+          label = "table:main",
+          covariate.labels = c("Breakthrough ratio", "Log population", "Log pop. growth", 
+                               "Log count", "Univ. Strength", "Gov. Interest", "DARPA Interest"),
+          se = list(df_main1, df_main2),
+          omit = c("Constant", "^class", "^Division"),
+          omit.stat = c("LL", "ser", "f", "rsq"),
+          add.lines = list(c("Class FE", "Yes", "Yes", "Yes", "Yes"),
+                           c("Division FE", "Yes", "Yes", "Yes", "Yes"),
+                           c("Class x Division FE", "No", "No", "No", "No"),
+                           c("City FE", "No", "No", "No", "No")),
+          column.labels = c("(1)", "(2)"),
+          dep.var.caption = "",
+          dep.var.labels.include = FALSE,
+          intercept.bottom = FALSE,
+          digits = 4)
+
+# Share -------------------------------------------------------------------
 #Main (30; Share)
 fit_30_1999_share <- executor(pre_year_vec = c(1985, 1999),
                               post_year_vec = c(2000, 2014),
@@ -589,19 +660,11 @@ fit_30_1999_share <- executor(pre_year_vec = c(1985, 1999),
                               treatment_year = 1999,
                               pre_periods = 9,
                               extra_reg = c("class", "Division"),
+                              citation_var = "count_24",
                               share = TRUE)
 summary(fit_30_1999_share)
 dfadjustSE(fit_30_1999_share)
-
-#Univ + gov
-fit_30_1999_add <- executor(pre_year_vec = c(1985, 1999),
-                           post_year_vec = c(2000, 2014),
-                           city_type = "msa",
-                           treatment_year = 1999,
-                           pre_periods = 9,
-                           extra_reg = c("class", "Division", "univ_index_scale", "gov_index_scale", "darpa_index_scale"))
-summary(fit_30_1999_add)
-dfadjustSE(fit_30_1999_add)
+dfshare1 <- dfadjustSE(fit_30_1999_share)[["coefficients"]][, "Adj. se"]
 
 fit_30_1999_add_share <- executor(pre_year_vec = c(1985, 1999),
                                   post_year_vec = c(2000, 2014),
@@ -610,12 +673,202 @@ fit_30_1999_add_share <- executor(pre_year_vec = c(1985, 1999),
                                   pre_periods = 9,
                                   extra_reg = c("class", "Division", "univ_index_scale", 
                                                 "gov_index_scale", "darpa_index_scale"),
+                                  citation_var = "count_24",
                                   share = TRUE)
 summary(fit_30_1999_add_share)
 dfadjustSE(fit_30_1999_add_share)
+dfshare2 <- dfadjustSE(fit_30_1999_add_share)[["coefficients"]][, "Adj. se"]
 
+stargazer(fit_30_1999_share, fit_30_1999_add_share, type = "latex",
+          title = "Breakthrough Shares",
+          label = "table:main",
+          covariate.labels = c("Breakthrough share", "Log population", "Log pop. growth", 
+                               "Log count", "Univ. Strength", "Gov. Interest", "DARPA Interest"),
+          se = list(dfshare1, dfshare2),
+          omit = c("Constant", "^class", "^Division"),
+          omit.stat = c("LL", "ser", "f", "rsq"),
+          add.lines = list(c("Class FE", "Yes", "Yes", "Yes", "Yes"),
+                           c("Division FE", "Yes", "Yes", "Yes", "Yes"),
+                           c("Class x Division FE", "No", "No", "No", "No"),
+                           c("City FE", "No", "No", "No", "No")),
+          column.labels = c("(1)", "(2)"),
+          dep.var.caption = "",
+          dep.var.labels.include = FALSE,
+          intercept.bottom = FALSE,
+          digits = 4)
+
+# Diff citation windows ---------------------------------------------------
+msa_counter <- function(citation_var){
+  data <- modeldta_maker(pre_year_vec = c(1985, 1999),
+                         post_year_vec = c(2000, 2014),
+                         city_type = "msa",
+                         treatment_year = 1999,
+                         pre_periods = 9,
+                         citation_var = citation_var) %>%
+    filter(class != "any_ai")
+  
+  return(data$msaname_inventor %>% unique() %>% length())
+}
+
+num_msas_cit <- lapply(c("forward_citations",
+                         "count_14",
+                         "count_9",
+                         "count_4"), msa_counter)
+
+fit_citall <- executor(pre_year_vec = c(1985, 1999),
+                        post_year_vec = c(2000, 2014),
+                        city_type = "msa",
+                        treatment_year = 1999,
+                        pre_periods = 9,
+                        extra_reg =  c("class", "Division", "univ_index_scale", 
+                                         "gov_index_scale", "darpa_index_scale"),
+                        citation_var = "forward_citations")
+summary(fit_citall)
+df_citall <- dfadjustSE(fit_citall)[["coefficients"]][, "Adj. se"]
+
+
+fit_cit4 <- executor(pre_year_vec = c(1985, 1999),
+                        post_year_vec = c(2000, 2014),
+                        city_type = "msa",
+                        treatment_year = 1999,
+                        pre_periods = 9,
+                        extra_reg =  c("class", "Division", "univ_index_scale", 
+                                       "gov_index_scale", "darpa_index_scale"),
+                        citation_var = "count_4")
+summary(fit_cit4)
+df_cit4 <- dfadjustSE(fit_cit4)[["coefficients"]][, "Adj. se"]
+
+fit_cit9 <- executor(pre_year_vec = c(1985, 1999),
+                        post_year_vec = c(2000, 2014),
+                        city_type = "msa",
+                        treatment_year = 1999,
+                        pre_periods = 9,
+                        extra_reg =  c("class", "Division", "univ_index_scale", 
+                                       "gov_index_scale", "darpa_index_scale"),
+                        citation_var = "count_9")
+summary(fit_cit9)
+df_cit9 <- dfadjustSE(fit_cit9)[["coefficients"]][, "Adj. se"]
+
+fit_cit14 <- executor(pre_year_vec = c(1985, 1999),
+                             post_year_vec = c(2000, 2014),
+                             city_type = "msa",
+                             treatment_year = 1999,
+                             pre_periods = 9,
+                             extra_reg =  c("class", "Division", "univ_index_scale", 
+                                            "gov_index_scale", "darpa_index_scale"),
+                             citation_var = "count_14")
+summary(fit_cit14)
+df_cit14 <- dfadjustSE(fit_cit14)[["coefficients"]][, "Adj. se"]
+
+stargazer(fit_citall, fit_cit14, fit_cit9, fit_cit4,
+          type = "latex",
+          title = "Varying Citation Time Windows",
+          label = "table:main",
+          covariate.labels = c("Breakthrough ratio", "Log population", "Log pop. growth", 
+                               "Log count", "Univ. Strength", "Gov. Interest", "DARPA Interest"),
+          se = list(df_citall, df_cit14, df_cit9, df_cit4),
+          omit = c("Constant", "^class", "^Division"),
+          omit.stat = c("LL", "ser", "f", "rsq"),
+          add.lines = list(c("Class FE", "Yes", "Yes", "Yes", "Yes"),
+                           c("Division FE", "Yes", "Yes", "Yes", "Yes"),
+                           c("Class x Division FE", "No", "No", "No", "No"),
+                           c("City FE", "No", "No", "No", "No")),
+          column.labels = c("Present", "15 years", "10 years", "5 years"),
+          dep.var.caption = "",
+          dep.var.labels.include = FALSE,
+          intercept.bottom = FALSE,
+          digits = 4)
 
 # Robustness checks -------------------------------------------------------
+#Mutually exclusive
+fit_30_1999_excl <- executor(pre_year_vec = c(1985, 1999),
+                             post_year_vec = c(2000, 2014),
+                             city_type = "msa",
+                             treatment_year = 1999,
+                             pre_periods = 9,
+                             extra_reg = c("class", "Division", "univ_index_scale", 
+                                           "gov_index_scale", "darpa_index_scale"),
+                             excl = TRUE,
+                             citation_var = "count_24"
+                             )
+summary(fit_30_1999_excl)
+df_excl <- dfadjustSE(fit_30_1999_excl)[["coefficients"]][, "Adj. se"]
+excl_dta <- modeldta_maker(pre_year_vec = c(1985, 1999),
+                          post_year_vec = c(2000, 2014),
+                          city_type = "msa",
+                          treatment_year = 1999,
+                          pre_periods = 9,
+                          num_cities = 10,
+                          excl = TRUE,
+                          citation_var = "count_24")
+
+#Region by technology
+fit_30_1999_rxt <- executor(pre_year_vec = c(1985, 1999),
+                          post_year_vec = c(2000, 2014),
+                          city_type = "msa",
+                          treatment_year = 1999,
+                          pre_periods = 9,
+                          extra_reg = c("class", "Division", "Division:class",
+                                        "univ_index_scale", "gov_index_scale", "darpa_index_scale"),
+                          num_cities = 26,
+                          citation_var = "count_24")
+rxt_dta <- modeldta_maker(pre_year_vec = c(1985, 1999),
+                          post_year_vec = c(2000, 2014),
+                          city_type = "msa",
+                          treatment_year = 1999,
+                          pre_periods = 9,
+                          num_cities = 26,
+                          citation_var = "count_24")
+df_rxt <- dfadjustSE(fit_30_1999_rxt)[["coefficients"]][, "Adj. se"]
+
+#Effects wiped out with city FE
+fit_city_fe <- executor(pre_year_vec = c(1985, 1999),
+                     post_year_vec = c(2000, 2014),
+                     city_type = "msa",
+                     treatment_year = 1999,
+                     pre_periods = 9,
+                     extra_reg = c("logpre", "class", "msa_inventor",
+                                   "univ_index_scale", "gov_index_scale", "darpa_index_scale"),
+                     nopop = TRUE,
+                     num_cities = 10,
+                     citation_var = "count_24"
+                     )
+df_cityfe <- dfadjustSE(fit_city_fe)[["coefficients"]][, "Adj. se"]
+
+
+#Outside
+fit_outside <- executor(pre_year_vec = c(1985, 1999),
+                    post_year_vec = c(2000, 2014),
+                    city_type = "msa",
+                    treatment_year = 1999,
+                    pre_periods = 9,
+                    extra_reg = c("class", "Division", "univ_index_scale", 
+                                  "gov_index_scale", "darpa_index_scale"),
+                    num_cities = 10,
+                    citation_var = "out_24"
+                    )
+df_outside <- dfadjustSE(fit_outside)[["coefficients"]][, "Adj. se"]
+
+stargazer(fit_30_1999_excl, fit_30_1999_rxt, fit_city_fe, fit_outside,
+          type = "latex",
+          title = "Robustness Checks",
+          label = "table:main",
+          covariate.labels = c("Breakthrough ratio", "Log population", "Log pop. growth", 
+                               "Log count", "Univ. Strength", "Gov. Interest", "DARPA Interest"),
+          se = list(df_excl, df_rxt, df_cityfe, df_outside),
+          omit = c("Constant", "^class", "^Division", "^msa"),
+          omit.stat = c("LL", "ser", "f", "rsq"),
+          add.lines = list(c("Class FE", "Yes", "Yes", "Yes", "Yes"),
+                           c("Division FE", "Yes", "Yes", "Yes", "Yes"),
+                           c("Class x Division FE", "No", "No", "No", "No"),
+                           c("City FE", "No", "No", "No", "No")),
+          column.labels = c("Mut. excl.", "CxD", "City FE", "Outside Citations"),
+          dep.var.caption = "",
+          dep.var.labels.include = FALSE,
+          intercept.bottom = FALSE,
+          digits = 4)
+
+# Second Sampling Method --------------------------------------------------
 #All cities
 model_dta_all <- modeldta_maker(pre_year_vec = c(1985, 1999),
                                 post_year_vec = c(2000, 2014),
@@ -635,122 +888,93 @@ model_dta_all <- modeldta_maker(pre_year_vec = c(1985, 1999),
   mutate(bt_ratio_std = scale(bt_ratio)) %>%
   ungroup()
 
-fit_30_1999_all <- lm(logdiff ~ bt_ratio_std + logpop + logpopdiff + logpre + class + Division + univ_index_scale + gov_index_scale + darpa_index_scale,
+fit_30_1999_all <- lm(logdiff ~ bt_ratio_std + logpop + logpopdiff + logpre + class + 
+                        Division + univ_index_scale + gov_index_scale + darpa_index_scale,
                       data = model_dta_all %>% filter(class != "any_ai"))
 summary(fit_30_1999_all)
-dfadjustSE(fit_30_1999_all)
+df_all <- dfadjustSE(fit_30_1999_all)[["coefficients"]][, "Adj. se"]
 
-#Mutually exclusive
-fit_30_1999_excl <- executor(pre_year_vec = c(1985, 1999),
-                                 post_year_vec = c(2000, 2014),
-                                 city_type = "msa",
-                                 treatment_year = 1999,
-                                 pre_periods = 9,
-                                 extra_reg = c("class", "Division", "univ_index_scale", 
-                                               "gov_index_scale", "darpa_index_scale"),
-                                 excl = TRUE)
-summary(fit_30_1999_excl)
-dfadjustSE(fit_30_1999_excl)
-
-#Region by technology
-fit_30_1999_rxt <- executor(pre_year_vec = c(1985, 1999),
-                          post_year_vec = c(2000, 2014),
-                          city_type = "msa",
-                          treatment_year = 1999,
-                          pre_periods = 9,
-                          extra_reg = c("class", "Division", "Division:class",
-                                        "univ_index_scale", "gov_index_scale", "darpa_index_scale"),
-                          num_cities = 26)
-rxt_dta <- modeldta_maker(pre_year_vec = c(1985, 1999),
-                          post_year_vec = c(2000, 2014),
-                          city_type = "msa",
-                          treatment_year = 1999,
-                          pre_periods = 9,
-                          num_cities = 26)
-dfadjustSE(fit_30_1999_rxt)
-
-#Effects wiped out with city FE; some city FE give NAs
-fit_city_fe <- executor(pre_year_vec = c(1985, 1999),
-                     post_year_vec = c(2000, 2014),
-                     city_type = "msa",
-                     treatment_year = 1999,
-                     pre_periods = 9,
-                     extra_reg = c("logpre", "class", "msa_inventor",
-                                   "univ_index_scale", "gov_index_scale", "darpa_index_scale"),
-                     nopop = TRUE,
-                     num_cities = 10
-                     )
-dfadjustSE(fit_city_fe)
-
-#Outside
-fit_outside <- executor(pre_year_vec = c(1985, 1999),
-                    post_year_vec = c(2000, 2014),
-                    city_type = "msa",
-                    treatment_year = 1999,
-                    pre_periods = 9,
-                    extra_reg = c("class", "Division", "univ_index_scale", 
-                                  "gov_index_scale", "darpa_index_scale"),
-                    num_cities = 10,
-                    citation_var = "out_24"
-                    )
-dfadjustSE(fit_outside)
-
-#Time window
-fit_24 <- executor(pre_year_vec = c(1985, 1999),
-                   post_year_vec = c(2000, 2014),
-                   city_type = "msa",
-                   treatment_year = 1999,
-                   pre_periods = 9,
-                   extra_reg = c("class", "Division", "univ_index_scale", 
-                                "gov_index_scale", "darpa_index_scale"),
-                   num_cities = 10,
-                   citation_var = "count_24"
-                     )
-dfadjustSE(fit_24)
-
-stargazer(fit_30_1999_add, fit_24, type = "latex",
-          title = "Main Regression Results",
-          label = "table:main",
-          covariate.labels = c("Breakthrough ratio", "Log population", "Log pop. growth", 
-                               "Log count", "Univ. Strength", "Gov. Interest", "DARPA Interest"),
-          omit = c("Constant", "^class", "^Division"),
-          omit.stat = c("LL", "ser", "f", "rsq"),
-          add.lines = list(c("Class FE", "Yes", "Yes", "Yes", "Yes"),
-                           c("Division FE", "Yes", "Yes", "Yes", "Yes"),
-                           c("Class x Division FE", "No", "No", "No", "No"),
-                           c("City FE", "No", "No", "No", "No")),
-          column.labels = c("(1)", "(2)"),
-          dep.var.caption = "",
-          dep.var.labels.include = FALSE,
-          intercept.bottom = FALSE,
-          digits = 5)
-
-# Second Sampling Method --------------------------------------------------
+#Second sampling method
 fit_30_1999_2 <- executor(pre_year_vec = c(1985, 1999),
                         post_year_vec = c(2000, 2014),
                         city_type = "msa",
                         treatment_year = 1999,
                         pre_periods = 9,
                         method = 2,
-                        extra_reg =  c("class", "Division"))
+                        extra_reg =  c("class", "Division"),
+                        citation_var = "count_24")
 fit_30_1999_2_dta <- modeldta_maker(pre_year_vec = c(1985, 1999),
                           post_year_vec = c(2000, 2014),
                           city_type = "msa",
                           treatment_year = 1999,
                           pre_periods = 9,
-                          method = 2)
+                          method = 2,
+                          citation_var = "count_24")
 summary(fit_30_1999_2)
-dfadjustSE(fit_30_1999_2)
+df_2 <- dfadjustSE(fit_30_1999_2)[["coefficients"]][, "Adj. se"]
 
+#Second sampling method w additional
 fit_30_1999_2_add <- executor(pre_year_vec = c(1985, 1999),
                         post_year_vec = c(2000, 2014),
                         city_type = "msa",
                         treatment_year = 1999,
                         pre_periods = 9,
                         method = 2,
-                        extra_reg =  c("class", "Division", "univ_index", "gov_index", "darpa_index"))
+                        extra_reg =  c("class", "Division", "univ_index_scale", "gov_index_scale", 
+                                       "darpa_index_scale"),
+                        citation_var = "count_24")
 summary(fit_30_1999_2_add)
 dfadjustSE(fit_30_1999_2_add)
+df_2add <- dfadjustSE(fit_30_1999_2_add)[["coefficients"]][, "Adj. se"]
+
+#Add tech cluster FE
+fit_30_1999_tech <- executor(pre_year_vec = c(1985, 1999),
+                              post_year_vec = c(2000, 2014),
+                              city_type = "msa",
+                              treatment_year = 1999,
+                              pre_periods = 9,
+                              method = 1,
+                              extra_reg =  c("class", "Division", "univ_index_scale", 
+                                             "gov_index_scale", "darpa_index_scale", "tech_cluster"),
+                             citation_var = "count_24")
+df_tech <- dfadjustSE(fit_30_1999_tech)[["coefficients"]][, "Adj. se"]
+
+stargazer(fit_30_1999_2, fit_30_1999_2_add, fit_30_1999_all,
+          type = "latex",
+          title = "Other Sampling Methods",
+          label = "table:main",
+          covariate.labels = c("Breakthrough ratio", "Log population", "Log pop. growth", 
+                               "Log count", "Univ. Strength", "Gov. Interest", "DARPA Interest"),
+          se = list(df_2, df_2add, df_all),
+          omit = c("Constant", "^class", "^Division", "^msa"),
+          omit.stat = c("LL", "ser", "f", "rsq"),
+          add.lines = list(c("Class FE", "Yes", "Yes", "Yes"),
+                           c("Division FE", "Yes", "Yes", "Yes"),
+                           c("Class x Division FE", "No", "No", "No"),
+                           c("City FE", "No", "No", "No")),
+          dep.var.caption = "",
+          dep.var.labels.include = FALSE,
+          intercept.bottom = FALSE,
+          digits = 4)
+
+stargazer(fit_30_1999_tech,
+          type = "latex",
+          title = "Tech Cluster Fixed Effect",
+          label = "table:main",
+          covariate.labels = c("Breakthrough ratio", "Log population", "Log pop. growth", 
+                               "Log count", "Univ. Strength", "Gov. Interest", "DARPA Interest",
+                               "Tech Cluster FE"),
+          se = list(df_tech),
+          omit = c("Constant", "^class", "^Division", "^msa"),
+          omit.stat = c("LL", "ser", "f", "rsq"),
+          add.lines = list(c("Class FE", "Yes"),
+                           c("Division FE", "Yes"),
+                           c("Class x Division FE", "No"),
+                           c("City FE", "No")),
+          dep.var.caption = "",
+          dep.var.labels.include = FALSE,
+          intercept.bottom = FALSE,
+          digits = 4)
 
 # LOO ---------------------------------------------------------------------
 executor_empty <- function(dta, extra_reg = "", nopop = FALSE, share = FALSE){
@@ -782,7 +1006,7 @@ loo_test <- function(pre_year_vec = c(1985, 1999),
   dta <- modeldta_maker(pre_year_vec, post_year_vec, city_type,
                  treatment_year, pre_periods, plot_graphs = TRUE,
                  all_cities = FALSE, excl = FALSE, num_cities = 10,
-                 method = 1)
+                 method = 1, citation_var = "count_24")
   city_vec <- unique(dta$msaname_inventor)
   
   fits <- lapply(city_vec, function(x) {
@@ -791,8 +1015,8 @@ loo_test <- function(pre_year_vec = c(1985, 1999),
       filter(msaname_inventor != x)
     
     model_fit <- executor_empty(model_dta, extra_reg = c("class", "Division",
-                                                         "univ_index", "gov_index",
-                                                         "darpa_index"))
+                                                         "univ_index_scale", "gov_index_scale",
+                                                         "darpa_index_scale"))
     
     meta_data <- tibble(
       left_out = x
@@ -804,13 +1028,10 @@ loo_test <- function(pre_year_vec = c(1985, 1999),
   )
   
   results <- map_dfr(fits, function(model) {
-    coefs <- summary(model[["model_fit"]])$coefficients
-    
+    coefs <- dfadjustSE(model[["model_fit"]])[["coefficients"]]
     tibble(
       coefficient = coefs["bt_ratio_std", "Estimate"],
-      standard_error = coefs["bt_ratio_std", "Std. Error"],
-      t_value = coefs["bt_ratio_std", "t value"],
-      p_value = coefs["bt_ratio_std", "Pr(>|t|)"]
+      standard_error = coefs["bt_ratio_std", "Adj. se"]
     ) %>%
       bind_cols(model[["meta_data"]])
     
@@ -819,7 +1040,20 @@ loo_test <- function(pre_year_vec = c(1985, 1999),
   return(results)
 }
 
-loo <- loo_test()
+loo <- loo_test() %>%
+  mutate(
+    ci_lb = coefficient - 1.96*standard_error,
+    ci_ub = coefficient + 1.96*standard_error
+  )
+
+ggplot(loo, aes(x=left_out, y=coefficient)) +
+  geom_point() +
+  geom_errorbar(aes(ymin=ci_lb, ymax=ci_ub), width=0.2) +
+  coord_flip() +  # Flip coordinates to have studies on the y-axis
+  ylab("Effect Size with 95% CI") +
+  xlab("Omitted MSA") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
 
 # Summary stats (all) --------------------------------------------------------
 
@@ -1251,7 +1485,8 @@ ggplot(results_20_18, aes(x = post_start, y = coefficient)) +
   theme_minimal() +
   labs(x = "Post-period start year",
        y = "Coefficient") + 
-  scale_x_continuous(breaks= pretty_breaks())
+  scale_x_continuous(breaks= pretty_breaks()) +
+  ylim(-0.22, 0.3) 
 
 ggplot(results_30_24, aes(x = post_start, y = coefficient)) +
   geom_point() +
@@ -1260,7 +1495,8 @@ ggplot(results_30_24, aes(x = post_start, y = coefficient)) +
   theme_minimal() +
   labs(x = "Post-period start year",
        y = "Coefficient")  + 
-  scale_x_continuous(breaks= pretty_breaks())
+  scale_x_continuous(breaks= pretty_breaks()) +
+  ylim(-0.22, 0.3) 
 
 ggplot(results_shift_merged, aes(x = post_start, y = coefficient)) +
   geom_point() +
@@ -1363,7 +1599,8 @@ ggplot(shift_20_1990_34, aes(x = post_start, y = coefficient)) +
                     ymax = coefficient + 1.96* standard_error), width = 0.2) +
   theme_minimal() +
   labs(x = "Post-period start year",
-       y = "Coefficient")
+       y = "Coefficient") +
+  ylim(-0.4, 0.3) 
 
 ggplot(shift_30_1990_34, aes(x = post_start, y = coefficient)) +
   geom_point() +
@@ -1371,7 +1608,8 @@ ggplot(shift_30_1990_34, aes(x = post_start, y = coefficient)) +
                     ymax = coefficient + 1.96* standard_error), width = 0.2) +
   theme_minimal() +
   labs(x = "Post-period start year",
-       y = "Coefficient")
+       y = "Coefficient") +
+  ylim(-0.4, 0.3) 
 
 ggplot(shift_post_merged, aes(x = post_start, y = coefficient)) +
   geom_point() +
