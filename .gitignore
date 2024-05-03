@@ -1,6 +1,7 @@
 AI/data/
 AI/papers/
 AI/plots/
+AI/winter/
 
 # History files
 .Rhistory
