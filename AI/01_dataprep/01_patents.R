@@ -13,17 +13,6 @@ ai_dta <- read_tsv("AI/data/raw/uspto/ai_model_predictions.tsv") %>%
             flag_train_vision, flag_train_kr, flag_train_planning,
             flag_train_hardware))
 
-#If filtering for AI patents only
-# %>%
-#   filter(
-#     predict50_any_ai == 1,
-#     flag_patent == 1
-#   ) %>%
-#   select(c(doc_id, pub_dt, predict50_ml, predict50_evo, predict50_nlp,
-#            predict50_speech, predict50_vision, predict50_kr,
-#            predict50_planning, predict50_hardware))
-
-
 # Application -------------------------------------------------------------
 
 app_dta <- read_tsv("AI/data/raw/uspto/g_application.tsv") %>%

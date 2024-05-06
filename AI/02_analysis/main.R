@@ -232,6 +232,7 @@ pop <- read_csv("AI/data/generated/populationMSA.csv") %>%
          msa = ifelse(msa == "C3110", "C3108", msa),
          msa = ifelse(msa == "C4206", "C4220", msa),
          msa = ifelse(msa == "C4694", "C4268", msa))
+
 # Regions -----------------------------------------------------------------
 msa_to_regions <- read_csv("AI/data/generated/region_crosswalk.csv") %>%
   select(MSA.Code, Division, Region) %>%
@@ -241,7 +242,6 @@ msa_to_regions <- read_csv("AI/data/generated/region_crosswalk.csv") %>%
 
 # Sampling ----------------------------------------------------------------
 #Helper function to create samples
-
 by_class_helper <- function(df, class_var, treatment_year, pre_periods, 
                             city_var,cityname_var, method, all_cities = FALSE,
                             num_cities = 10, citation_var = "forward_citations"){
@@ -381,10 +381,8 @@ by_class <- function(class, treatment_year, pre_periods, city_type, method,
   return(all_citation_arranged)
 }
 
-
-
 #Patent count data + graphs
-any_ai <- by_class("any_ai",1999, 4, "msa",1)
+# any_ai <- by_class("any_ai",1999, 4, "msa",1)
 # nlp <- by_class("nlp", 1984, 5, "msa", 1)
 # kr <- by_class("kr",1984, 5, "msa", 1)
 # planning <- by_class("planning",1984, 5, "msa", 1)
@@ -464,26 +462,43 @@ graphical <- function(treatment_year, pre_periods, city_type, method, citation_v
 }
 
 graphical(1999, 9, "msa", 1, citation_var = "count_24")
+ggsave("AI/figures/fig2.png")
 
 graphical(1994, 9, "msa", 1, citation_var = "forward_citations")
+ggsave("AI/figures/graphical/figB1a.png")
 graphical(1999, 9, "msa", 1, citation_var = "forward_citations")
+ggsave("AI/figures/graphical/figB1b.png")
 graphical(2004, 9, "msa", 1, citation_var = "forward_citations")
+ggsave("AI/figures/graphical/figB1c.png")
 graphical(2009, 9, "msa", 1, citation_var = "forward_citations")
+ggsave("AI/figures/graphical/figB1d.png")
 
 graphical(1994, 9, "msa", 1, citation_var = "count_14")
+ggsave("AI/figures/graphical/figB2a.png")
 graphical(1999, 9, "msa", 1, citation_var = "count_14")
+ggsave("AI/figures/graphical/figB2b.png")
 graphical(2004, 9, "msa", 1, citation_var = "count_14")
+ggsave("AI/figures/graphical/figB2c.png")
 graphical(2009, 9, "msa", 1, citation_var = "count_14")
+ggsave("AI/figures/graphical/figB2d.png")
 
 graphical(1994, 9, "msa", 1, citation_var = "count_9")
+ggsave("AI/figures/graphical/figB3a.png")
 graphical(1999, 9, "msa", 1, citation_var = "count_9")
+ggsave("AI/figures/graphical/figB3b.png")
 graphical(2004, 9, "msa", 1, citation_var = "count_9")
+ggsave("AI/figures/graphical/figB3c.png")
 graphical(2009, 9, "msa", 1, citation_var = "count_9")
+ggsave("AI/figures/graphical/figB3d.png")
 
 graphical(1994, 9, "msa", 1, citation_var = "count_4")
+ggsave("AI/figures/graphical/figB4a.png")
 graphical(1999, 9, "msa", 1, citation_var = "count_4")
+ggsave("AI/figures/graphical/figB4b.png")
 graphical(2004, 9, "msa", 1, citation_var = "count_4")
+ggsave("AI/figures/graphical/figB4c.png")
 graphical(2009, 9, "msa", 1, citation_var = "count_4")
+ggsave("AI/figures/graphical/figB4d.png")
 
 # Main Model -------------------------------------------------------------------
 modeldta_maker <- function(pre_year_vec, post_year_vec, city_type,
@@ -543,7 +558,6 @@ modeldta_maker <- function(pre_year_vec, post_year_vec, city_type,
     mutate(
       logdiff = log(post_count) - log(pre_count),
       logpre = log(pre_count),
-      #Can change years for these
       logpop = log(pop2000),
       logpopdiff = log(pop2000) - log(pop1990)
     ) %>%
@@ -585,15 +599,6 @@ executor <- function(pre_year_vec, post_year_vec, city_type = "msa",
 }
 
 # Model Execution ---------------------------------------------------------
-#Main (20)
-# fit_20_1999 <- executor(pre_year_vec = c(1990, 1999),
-#                         post_year_vec = c(2000, 2009),
-#                         city_type = "msa",
-#                         treatment_year = 1999,
-#                         pre_periods = 9,
-#                         extra_reg = c("class", "Division"))
-# robust_se <- vcovHC(fit_20_1999, type = "HC1")
-# coeftest(fit_20_1999, vcov. = robust_se)
 
 #Main (30)
 fit_30_1999 <- executor(pre_year_vec = c(1985, 1999),
@@ -633,7 +638,6 @@ summary(fit_30_1999_add)
 dfadjustSE(fit_30_1999_add)
 df_main2 <- dfadjustSE(fit_30_1999_add)[["coefficients"]][, "Adj. se"]
 
-
 stargazer(fit_30_1999, fit_30_1999_add, type = "latex",
           title = "Main Regression Results",
           label = "table:main",
@@ -650,7 +654,8 @@ stargazer(fit_30_1999, fit_30_1999_add, type = "latex",
           dep.var.caption = "",
           dep.var.labels.include = FALSE,
           intercept.bottom = FALSE,
-          digits = 4)
+          digits = 4,
+          out = "AI/tables/tab3.tex")
 
 # Share -------------------------------------------------------------------
 #Main (30; Share)
@@ -695,7 +700,8 @@ stargazer(fit_30_1999_share, fit_30_1999_add_share, type = "latex",
           dep.var.caption = "",
           dep.var.labels.include = FALSE,
           intercept.bottom = FALSE,
-          digits = 4)
+          digits = 4,
+          out = "AI/tables/tabC1.tex")
 
 # Diff citation windows ---------------------------------------------------
 msa_counter <- function(citation_var){
@@ -777,7 +783,8 @@ stargazer(fit_citall, fit_cit14, fit_cit9, fit_cit4,
           dep.var.caption = "",
           dep.var.labels.include = FALSE,
           intercept.bottom = FALSE,
-          digits = 4)
+          digits = 4,
+          out = "AI/tables/tabC2.tex")
 
 # Robustness checks -------------------------------------------------------
 #Mutually exclusive
@@ -866,7 +873,8 @@ stargazer(fit_30_1999_excl, fit_30_1999_rxt, fit_city_fe, fit_outside,
           dep.var.caption = "",
           dep.var.labels.include = FALSE,
           intercept.bottom = FALSE,
-          digits = 4)
+          digits = 4,
+          out = "AI/tables/tab4.tex")
 
 # Second Sampling Method --------------------------------------------------
 #All cities
@@ -955,7 +963,8 @@ stargazer(fit_30_1999_2, fit_30_1999_2_add, fit_30_1999_all,
           dep.var.caption = "",
           dep.var.labels.include = FALSE,
           intercept.bottom = FALSE,
-          digits = 4)
+          digits = 4,
+          out = "AI/tables/tab5.tex")
 
 stargazer(fit_30_1999_tech,
           type = "latex",
@@ -974,7 +983,8 @@ stargazer(fit_30_1999_tech,
           dep.var.caption = "",
           dep.var.labels.include = FALSE,
           intercept.bottom = FALSE,
-          digits = 4)
+          digits = 4,
+          out = "AI/tables/tabC3.tex")
 
 # LOO ---------------------------------------------------------------------
 executor_empty <- function(dta, extra_reg = "", nopop = FALSE, share = FALSE){
@@ -1055,6 +1065,8 @@ ggplot(loo, aes(x=left_out, y=coefficient)) +
   theme_minimal() +
   theme(axis.text.x = element_text(angle = 90, hjust = 1))
 
+ggsave("AI/figures/figC1.png")
+
 # Summary stats (all) --------------------------------------------------------
 
 ##Averages
@@ -1118,7 +1130,8 @@ stats_merged <- stats_merged[, c("type", "bt_ratio_mean",
 
 kable(stats_merged, "latex", booktabs = TRUE, caption = "Descriptive statistics for all cities.",
       linesep = "") %>%
-  kable_styling(latex_options = c("scale_down", "hold_position"))
+  kable_styling(latex_options = c("scale_down", "hold_position")) %>%
+  save_kable("AI/tables/tab2a.tex")
 
 # Summary stats (top 25) --------------------------------------------------
 pre_total <- dta_all_merged_excl %>%
@@ -1177,12 +1190,6 @@ top_down_avg <- ranked %>%
 top_avg_merged <- rbind(top_avg, top_up_avg, top_down_avg, top_avg_noks, top_up_avg_noks) %>%
   mutate_if(is.numeric, round, 2)
 
-# ranked <- ranked %>%
-#   mutate_if(is.numeric, round, 2) %>%
-#   mutate(pre_rankshare = paste(pre_rank, " (", pre_share, ")", sep=""),
-#          post_rankshare = paste(post_rank, " (", post_share, ")", sep="")) %>%
-#   select(-c(pre_rank, pre_share, post_rank, post_share))
-
 ranked <- ranked %>%
   mutate_if(is.numeric, round, 2) %>%
   select(-c(pre_share, post_share)) %>%
@@ -1196,11 +1203,13 @@ ranked <- ranked[, c("msaname_inventor", "pre_rank", "post_rank", "rank_change",
 kable(ranked, "latex", booktabs = TRUE, caption = "Descriptive statistics for prominent patenting cities.",
       linesep = "") %>%
   kable_styling(latex_options = c("scale_down", "HOLD_position")) %>%
-  add_header_above(c(" " = 1, "City Rank" = 3, " " = 4))
+  add_header_above(c(" " = 1, "City Rank" = 3, " " = 4)) %>%
+  save_kable("AI/tables/tab1a.tex")
 
 kable(top_avg_merged, "latex", booktabs = TRUE) %>%
   kable_styling(latex_options = c("scale_down", "HOLD_position")) %>%
-  add_footnote("Footnote 1", threeparttable = TRUE)
+  add_footnote("Footnote 1", threeparttable = TRUE) %>%
+  save_kable("AI/tables/tab1b.tex")
 
 
 # Summary stats (tech) ----------------------------------------------------
@@ -1370,38 +1379,8 @@ tech_dta_summary <- tech_dta %>%
 
 kable(tech_dta_summary, "latex", booktabs = TRUE, caption = "Descriptive statistics for tech cities.",
       linesep = "") %>%
-  kable_styling(latex_options = c("scale_down", "hold_position"))
-
-# Co-occurrence ------------------------------------------------------------
-
-
-# class_vec <- c("nlp","kr","planning","hardware","vision", "speech", "ml")
-# class_var_vec <- paste0("predict50_", class_vec)
-# 
-# co_occurrence_matrix <- dta_all_merged_excl %>% 
-#   select(all_of(class_var_vec)) %>%
-#   mutate(id = row_number()) %>% 
-#   pivot_longer(cols = -id, names_to = "category", values_to = "value") %>% 
-#   filter(value == 1) %>% 
-#   select(-value) %>% 
-#   inner_join(., ., by = "id") %>% 
-#   count(name.x, name.y) %>%
-#   pivot_wider(names_from = name.y, values_from = n, values_fill = list(n = 0))
-# 
-# # Adjusting the matrix to be symmetrical
-# co_occurrence_matrix <- co_occurrence_matrix %>%
-#   select(-name.x) %>%
-#   as.matrix() %>%
-#   { . + t(.) } %>%
-#   replace(1:7, diag(.) / 2)  # Fixing diagonal to avoid double count
-# 
-# # Plotting the matrix as a heatmap
-# ggplot(melt(co_occurrence_matrix), aes(Var1, Var2, fill = value)) +
-#   geom_tile() +
-#   scale_fill_gradient(low = "white", high = "blue") +
-#   labs(x = "Category", y = "Category", fill = "Number of Patents") +
-#   theme_minimal() +
-#   theme(axis.text.x = element_text(angle = 45, hjust = 1))
+  kable_styling(latex_options = c("scale_down", "hold_position")) %>%
+  save_kable("AI/tables/tab2b.tex")
 
 # Shifting sample --------------------------------------------------------
 shift_sample <- function(sample_length, pre_periods, citation_var = "forward_citations"){
@@ -1453,30 +1432,9 @@ shift_sample <- function(sample_length, pre_periods, citation_var = "forward_cit
   
   return(results)
 }
+
 results_30_24 <- shift_sample(30, 9, "count_24")
 results_20_18 <- shift_sample(20, 9, "count_18")
-results_30 <- shift_sample(30, 9)
-results_20 <- shift_sample(20, 9)
-
-results_shift_merged <- rbind(results_30, results_20)
-
-ggplot(results_20, aes(x = post_start, y = coefficient)) +
-  geom_point() +
-  geom_errorbar(aes(ymin = coefficient - 1.96* standard_error, 
-                    ymax = coefficient + 1.96* standard_error), width = 0.2) +
-  theme_minimal() +
-  labs(x = "Post-period start year",
-       y = "Coefficient") + 
-  scale_x_continuous(breaks= pretty_breaks())
-
-ggplot(results_30, aes(x = post_start, y = coefficient)) +
-  geom_point() +
-  geom_errorbar(aes(ymin = coefficient - 1.96* standard_error, 
-                    ymax = coefficient + 1.96* standard_error), width = 0.2) +
-  theme_minimal() +
-  labs(x = "Post-period start year",
-       y = "Coefficient")  + 
-  scale_x_continuous(breaks= pretty_breaks())
 
 ggplot(results_20_18, aes(x = post_start, y = coefficient)) +
   geom_point() +
@@ -1486,7 +1444,8 @@ ggplot(results_20_18, aes(x = post_start, y = coefficient)) +
   labs(x = "Post-period start year",
        y = "Coefficient") + 
   scale_x_continuous(breaks= pretty_breaks()) +
-  ylim(-0.22, 0.3) 
+  ylim(-0.22, 0.3)
+ggsave("AI/figures/fig3a.png")
 
 ggplot(results_30_24, aes(x = post_start, y = coefficient)) +
   geom_point() +
@@ -1497,15 +1456,27 @@ ggplot(results_30_24, aes(x = post_start, y = coefficient)) +
        y = "Coefficient")  + 
   scale_x_continuous(breaks= pretty_breaks()) +
   ylim(-0.22, 0.3) 
+ggsave("AI/figures/fig3b.png")
 
-ggplot(results_shift_merged, aes(x = post_start, y = coefficient)) +
-  geom_point() +
-  geom_errorbar(aes(ymin = coefficient - 1.96* standard_error, 
-                    ymax = coefficient + 1.96* standard_error), width = 0.2) +
-  facet_grid(vars(pre_periods)) +
-  theme_minimal() +
-  labs(x = "Post-period start year",
-       y = "Coefficient")
+# results_30 <- shift_sample(30, 9)
+# results_20 <- shift_sample(20, 9)
+# ggplot(results_20, aes(x = post_start, y = coefficient)) +
+#   geom_point() +
+#   geom_errorbar(aes(ymin = coefficient - 1.96* standard_error, 
+#                     ymax = coefficient + 1.96* standard_error), width = 0.2) +
+#   theme_minimal() +
+#   labs(x = "Post-period start year",
+#        y = "Coefficient") + 
+#   scale_x_continuous(breaks= pretty_breaks())
+# 
+# ggplot(results_30, aes(x = post_start, y = coefficient)) +
+#   geom_point() +
+#   geom_errorbar(aes(ymin = coefficient - 1.96* standard_error, 
+#                     ymax = coefficient + 1.96* standard_error), width = 0.2) +
+#   theme_minimal() +
+#   labs(x = "Post-period start year",
+#        y = "Coefficient")  + 
+#   scale_x_continuous(breaks= pretty_breaks())
 
 # Shifting post-period ----------------------------------------------------
 shift_post <- function(treatment_year, increment, pre_periods, 
@@ -1559,13 +1530,6 @@ shift_post <- function(treatment_year, increment, pre_periods,
   return(results)
 }
 
-shift_20_1990 <- shift_post(treatment_year = 1989,
-                         increment = 20,
-                         pre_periods = 9)
-shift_30_1990 <- shift_post(treatment_year = 1989,
-                            increment = 30,
-                            pre_periods = 9)
-
 shift_20_1990_34 <- shift_post(treatment_year = 1989,
                             increment = 20,
                             pre_periods = 9,
@@ -1575,24 +1539,6 @@ shift_30_1990_34 <- shift_post(treatment_year = 1989,
                             pre_periods = 9,
                             citation_var = "count_34")
 
-shift_post_merged <- rbind(shift_20_1990, shift_30_1990)
-
-ggplot(shift_20_1990, aes(x = post_start, y = coefficient)) +
-  geom_point() +
-  geom_errorbar(aes(ymin = coefficient - 1.96* standard_error, 
-                    ymax = coefficient + 1.96* standard_error), width = 0.2) +
-  theme_minimal() +
-  labs(x = "Post-period start year",
-       y = "Coefficient")
-
-ggplot(shift_30_1990, aes(x = post_start, y = coefficient)) +
-  geom_point() +
-  geom_errorbar(aes(ymin = coefficient - 1.96* standard_error, 
-                    ymax = coefficient + 1.96* standard_error), width = 0.2) +
-  theme_minimal() +
-  labs(x = "Post-period start year",
-       y = "Coefficient")
-
 ggplot(shift_20_1990_34, aes(x = post_start, y = coefficient)) +
   geom_point() +
   geom_errorbar(aes(ymin = coefficient - 1.96* standard_error, 
@@ -1600,7 +1546,8 @@ ggplot(shift_20_1990_34, aes(x = post_start, y = coefficient)) +
   theme_minimal() +
   labs(x = "Post-period start year",
        y = "Coefficient") +
-  ylim(-0.4, 0.3) 
+  ylim(-0.4, 0.3)
+ggsave("AI/figures/fig4a.png")
 
 ggplot(shift_30_1990_34, aes(x = post_start, y = coefficient)) +
   geom_point() +
@@ -1609,13 +1556,28 @@ ggplot(shift_30_1990_34, aes(x = post_start, y = coefficient)) +
   theme_minimal() +
   labs(x = "Post-period start year",
        y = "Coefficient") +
-  ylim(-0.4, 0.3) 
+  ylim(-0.4, 0.3)
+ggsave("AI/figures/fig4b.png")
 
-ggplot(shift_post_merged, aes(x = post_start, y = coefficient)) +
-  geom_point() +
-  geom_errorbar(aes(ymin = coefficient - 1.96* standard_error, 
-                    ymax = coefficient + 1.96* standard_error), width = 0.2) +
-  theme_minimal() +
-  facet_grid(vars(increment)) + 
-  labs(x = "Post-period start year",
-       y = "Coefficient")
+# shift_20_1990 <- shift_post(treatment_year = 1989,
+#                             increment = 20,
+#                             pre_periods = 9)
+# shift_30_1990 <- shift_post(treatment_year = 1989,
+#                             increment = 30,
+#                             pre_periods = 9)
+# 
+# ggplot(shift_20_1990, aes(x = post_start, y = coefficient)) +
+#   geom_point() +
+#   geom_errorbar(aes(ymin = coefficient - 1.96* standard_error, 
+#                     ymax = coefficient + 1.96* standard_error), width = 0.2) +
+#   theme_minimal() +
+#   labs(x = "Post-period start year",
+#        y = "Coefficient")
+# 
+# ggplot(shift_30_1990, aes(x = post_start, y = coefficient)) +
+#   geom_point() +
+#   geom_errorbar(aes(ymin = coefficient - 1.96* standard_error, 
+#                     ymax = coefficient + 1.96* standard_error), width = 0.2) +
+#   theme_minimal() +
+#   labs(x = "Post-period start year",
+#        y = "Coefficient")

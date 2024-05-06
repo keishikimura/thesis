@@ -9,8 +9,8 @@ csa2013_dta <- read_excel("AI/data/raw/census/qcew-county-msa-csa-crosswalk.xlsx
                           sheet = 3)
 
 regions_dta <- read_csv("AI/data/raw/census/regions.csv")
-names(regions_dta) <- make.names(names(regions_dta),unique = TRUE)
 
+names(regions_dta) <- make.names(names(regions_dta),unique = TRUE)
 names(csa2013_dta)<-make.names(names(csa2013_dta),unique = TRUE)
 
 csa_dta <- msa2013_dta %>%

@@ -141,4 +141,3 @@ write_csv(cumulative_citations, "AI/data/generated/cum_citations_outside.csv")
 # merged_test <- citation_cum_47 %>%
 #   left_join(original, by = "citation_patent_id") %>%
 #   filter(count_47 != count | out_47 != sum_outside)
-
