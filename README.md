@@ -21,7 +21,7 @@ All data **are** publicly available.
 | “Startup Patenting Dataset” | _patent_ocpb_augmented.csv | data/raw/uspto/ | FALSE | Ewens and Marx (2023) | [Reliance on Science](https://foundingpatents.com/data/) | |
 | “Combined MSA CBSA FIPS County Crosswalk 2005, 2011-2017” | cbsatocountycrosswalk.csv | data/raw/nber/ | FALSE | U.S. Census (2017) | [NBER](https://www.nber.org/research/data/ssa-federal-information-processing-series-fips-core-based-statistical-area-cbsa-and-metropolitan-and)
 | |
-| “QCEW County-MSA-CSA Crosswalk, 2013-2022” | qcew-county-msa-csa-crosswalk.xlsx | data/raw/census | FALSE | U.S. Bureau of Labor Statistics (2022) | [BLS](https://www.bls.gov/cew/classifications/areas/county-msa-csa-crosswalk.htm)||
+| “QCEW County-MSA-CSA Crosswalk, 2013-2022” | qcew-county-msa-csa-crosswalk.xlsx | data/raw/census/ | FALSE | U.S. Bureau of Labor Statistics (2022) | [BLS](https://www.bls.gov/cew/classifications/areas/county-msa-csa-crosswalk.htm)||
 | “U.S. Census Regional Divisions” | regions.csv | data/raw/census/ | FALSE | U.S. Census (2014) | [Github](https://github.com/cphalpert/census-regions/blob/master/us%20census%20bureau%20regions%20and%20divisions.csv)| |
 | “Population in Metropolitan and Micropolitan Statistical Areas: 1990 and 2000” | tab05b.csv | data/raw/census/ | FALSE | U.S. Census (2003) | [U.S. Census](https://www.census.gov/data/tables/2000/dec/phc-t-29.html)| Table 5b|
 
