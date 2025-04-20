@@ -17,7 +17,7 @@ All data **are** publicly available.
 | Data.Name  | Data.Files | Location | Provided | Citation | Link | Notes |
 | -- | -- | -- | -- | -- | -- | -- | 
 | “Artificial Intelligence Patent Dataset” | ai_model_predictions.tsv | data/raw/uspto/ | FALSE | Giczy et al. (2021) | [USPTO](https://www.uspto.gov/ip-policy/economic-research/research-datasets/artificial-intelligence-patent-dataset) | |
-| “USPTO PatentsView Data” | g_application.tsv; g_gov_interest_org.tsv; g_inventor_disambiguated.tsv; g_location_disambiguated; g_patent.tsv; g_persistent_inventor.tsv; g_us_patent_citation.tsv; g_patent.tsv | data/raw/uspto/ | FALSE | USPTO (2024) | [PatentsView](https://patentsview.org/download/data-download-tables) | Updated Feb. 2024 |
+| “USPTO PatentsView Data” | g_application.tsv; g_gov_interest_org.tsv; g_inventor_disambiguated.tsv; g_location_disambiguated; g_patent.tsv; g_persistent_inventor.tsv; g_us_patent_citation.tsv | data/raw/uspto/ | FALSE | USPTO (2024) | [PatentsView](https://patentsview.org/download/data-download-tables) | Updated Feb. 2024 |
 | “Startup Patenting Dataset” | _patent_ocpb_augmented.csv | data/raw/uspto/ | FALSE | Ewens and Marx (2023) | [Reliance on Science](https://foundingpatents.com/data/) | |
 | “Combined MSA CBSA FIPS County Crosswalk 2005, 2011-2017” | cbsatocountycrosswalk.csv | data/raw/nber/ | FALSE | U.S. Census (2017) | [NBER](https://www.nber.org/research/data/ssa-federal-information-processing-series-fips-core-based-statistical-area-cbsa-and-metropolitan-and)||
 | “QCEW County-MSA-CSA Crosswalk, 2013-2022” | qcew-county-msa-csa-crosswalk.xlsx | data/raw/census/ | FALSE | U.S. Bureau of Labor Statistics (2022) | [BLS](https://www.bls.gov/cew/classifications/areas/county-msa-csa-crosswalk.htm)||
