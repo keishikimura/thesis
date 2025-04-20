@@ -67,7 +67,7 @@ The code was last run on a **Apple MacBook Air with M1 chip, running macOS Sonom
 
 ## Instructions to Replicators
 
-- Run `chmod +x setup.sh` and `setup.sh` in Terminal to set up data and output directories.
+- Run `chmod +x setup.sh` and `./setup.sh` in Terminal to set up data and output directories.
 - Download the data files referenced above. Each should be renamed as above and stored in the prepared subdirectories of `AI/data/`.
 - Run files in `AI/01_dataprep` in ordered sequence to generate cleaned datasets.
 - Run files in `AI/02_analysis` to generate the main output.
