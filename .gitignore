@@ -1,8 +1,8 @@
-AI/data/
-AI/papers/
-AI/figures/
-AI/winter/
-AI/tables/
+data/
+papers/
+figures/
+winter/
+tables/
 
 # History files
 .Rhistory

@@ -1,0 +1,368 @@
+---
+title: "Target Markdown"
+output: html_document
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+```
+
+# Setup
+
+```{r}
+library(targets)
+library(visNetwork)
+source("targets_config.R")
+
+tar_unscript()
+```
+
+# Globals
+
+```{targets globals, tar_globals = TRUE}
+library(targets)
+library(tarchetypes)
+library(qs2)
+
+source("targets_config.R")
+
+options(tidyverse.quiet = TRUE)
+tar_option_set(
+  packages = c("tibble",
+               "tidyverse",
+               "readr",
+               "readxl",
+               "lubridate",
+               "sandwich",
+               "lmtest",
+               "dfadjust",
+               "knitr",
+               "kableExtra",
+               "scales",
+               "stargazer"),
+  format = "qs",
+  controller = crew::crew_controller_local(workers = 2, seconds_idle = 60)
+)
+
+DO_ALL_GEOTYPES <- TRUE
+city_types <- if (DO_ALL_GEOTYPES) c("MSA", "CSA", "CBSA") else c("MSA")
+```
+
+# Targets
+
+```{targets load_data}
+lapply(
+  c(
+    "PipelineCode/data_funs.R"
+  ),
+  tar_source
+)
+
+list(
+  tar_target(
+    ai_dta,
+    load_ai_dta("Data/raw/uspto/ai_model_predictions.tsv")
+  ),
+  tar_target(
+    app_dta,
+    load_app_dta("Data/raw/uspto/g_application.tsv")
+  ),
+  tar_target(
+    location_dta,
+    load_location_dta("Data/raw/uspto/g_location_disambiguated.tsv")
+  ),
+  tar_target(
+    csa_dta,
+    load_csa_dta(
+      msa_path = "Data/raw/nber/cbsatocountycrosswalk.csv",
+      csa_path = "Data/raw/census/qcew-county-msa-csa-crosswalk.xlsx",
+      region_path = "Data/raw/census/regions.csv"
+    )
+  ),
+  tar_target(
+    gov_interest,
+    read_tsv("Data/raw/uspto/g_gov_interest_org.tsv")
+  ),
+  tar_target(
+    inventor_location_dta,
+    load_inventor_dta(
+      inventor_path = "Data/raw/uspto/g_inventor_disambiguated.tsv",
+      location_dta = location_dta
+    )
+  ),
+  tar_target(
+    assignee_location_dta,
+    load_assignee_dta(
+      assignee_path = "Data/raw/uspto/_patent_ocpb_augmented.csv",
+      location_dta = location_dta
+    )
+  ),
+  tar_target(
+    inventor_MSA_map,
+    inventor_prep(
+      city_type = "MSA",
+      inventor_location_dta = inventor_location_dta,
+      csa_dta = csa_dta
+    )
+  ),
+  tar_map(
+    values = list(city_type = city_types),
+    names = city_type,
+    tar_target(
+      AIpatent,
+      master_prep(
+        city_type = city_type,
+        inventor_location_dta = inventor_location_dta,
+        assignee_location_dta = assignee_location_dta,
+        csa_dta = csa_dta,
+        ai_dta = ai_dta,
+        app_dta = app_dta
+      )
+    )
+  ),
+  tar_target(
+    population_dta,
+    load_population_dta("Data/raw/census/tab05b.csv")
+  ),
+  tar_map(
+    values = list(cum_citations = c(T,F)),
+    names = cum_citations,
+    tar_target(
+      outside_citation_dta,
+      load_citation_dta(
+        citation_path = "Data/raw/uspto/g_us_patent_citation.tsv",
+        patent_path = "Data/raw/uspto/g_patent.tsv",
+        AIpatent_MSA = AIpatent_MSA,
+        inventor_MSA_map = inventor_MSA_map,
+        cum_citations = cum_citations
+      )
+    )
+  ),
+  tar_target(
+    master_dta,
+    load_master_dta(
+      AIpatent_CSA = AIpatent_CSA,
+      AIpatent_CBSA = AIpatent_CBSA,
+      AIpatent_MSA = AIpatent_MSA
+    )
+  ),
+  tar_target(
+    merge_master,
+    merge_master_dta(
+      master_dta = master_dta,
+      csa_dta = csa_dta,
+      citation_dta = outside_citation_dta_FALSE,
+      cum_citation_dta = outside_citation_dta_TRUE,
+      lag_vec = c(4, 9, 14, 18, 24, 34),
+      msa_tech_vec = c("CS488", "CS148", "CS500", "CS216"),
+      msa_big_vec = c("CS408", "CS348", "CS176", "CS428", "CS220")
+    )
+  )
+)
+```
+
+```{targets summary}
+lapply(
+  c(
+    "PipelineCode/summary.R"
+  ),
+  tar_source
+)
+
+list(
+  tar_target(
+    summary_all,
+    gen_summary_all(data_all = model_dta_all),
+    format = "file"
+  ),
+  tar_map(
+    values = list(panels = c("A","B")),
+    names = panel,
+    tar_target(
+      summary_top,
+      gen_summary_top(data = merge_master,
+                      data_all = model_dta_all,
+                      panel = panels),
+      format = "file"
+    )
+  ),
+  tar_target(
+    summary_tech,
+    gen_summary_tech(data = merge_master,
+                     gov_data = gov_interest),
+    format = "file"
+  )
+)
+```
+
+
+```{targets graphical}
+lapply(
+  c(
+    "PipelineCode/sample_funs.R",
+    "PipelineCode/graph_funs.R"
+  ),
+  tar_source
+)
+
+list(
+  tar_target(
+    specs_graphical,
+    graphical_specs
+  ),
+  tar_target(
+    graphical_analysis,
+    graphical(
+      dta_all_merged_excl = merge_master,
+      treatment_year = specs_graphical$treatment_year,
+      pre_periods = 9,
+      city_type = "msa",
+      method = 1,
+      citation_var = specs_graphical$citation_var,
+      fig_path = specs_graphical$fig_path
+    ),
+    pattern = map(specs_graphical),
+    format  = "file"
+  )
+)
+```
+
+```{targets fit}
+lapply(
+  c(
+    "PipelineCode/sample_funs.R",
+    "PipelineCode/model_funs.R",
+    "PipelineCode/model_specs.R",
+    "PipelineCode/loo.R"
+  ),
+  tar_source
+)
+
+list(
+  tar_target(
+    model_dta_all,
+    gen_model_dta_all(data = merge_master,
+                      pop_data = population_dta,
+                      gov_data = gov_interest)
+  ),
+  tar_target(
+    main_table,
+    gen_main_table(data = merge_master,
+                   pop_data = population_dta,
+                   gov_data = gov_interest),
+    format = "file"
+  ),
+  tar_target(
+    share_table,
+    gen_share_table(data = merge_master,
+                    pop_data = population_dta,
+                    gov_data = gov_interest),
+    format = "file"
+  ),
+  tar_target(
+    window_table,
+    gen_window_table(data = merge_master,
+                     pop_data = population_dta,
+                     gov_data = gov_interest),
+    format = "file"
+  ),
+  tar_target(
+    robustness_table,
+    gen_robustness_table(data = merge_master,
+                         pop_data = population_dta,
+                         gov_data = gov_interest),
+    format = "file"
+  ),
+  tar_target(
+    altsample_table,
+    gen_altsample_table(data = merge_master,
+                        data_all = model_dta_all,
+                        pop_data = population_dta,
+                        gov_data = gov_interest),
+    format = "file"
+  ),
+  tar_target(
+    tech_table,
+    gen_tech_table(data = merge_master,
+                   pop_data = population_dta,
+                   gov_data = gov_interest),
+    format = "file"
+  ),
+  tar_target(
+    loo,
+    gen_loo_fig(data = merge_master,
+                pop_data = population_dta,
+                gov_data = gov_interest),
+    format = "file"
+  )
+)
+```
+
+```{targets shift}
+lapply(
+  c(
+    "PipelineCode/sample_funs.R",
+    "PipelineCode/model_funs.R",
+    "PipelineCode/shifts.R"
+  ),
+  tar_source
+)
+
+list(
+  tar_target(
+    specs_shift_sample,
+    shift_sample_specs
+  ),
+  tar_target(
+    shift_sample_est,
+    shift_sample(
+      data = merge_master,
+      pop_data = population_dta,
+      gov_data = gov_interest,
+      sample_length = specs_shift_sample$sample_length,
+      pre_periods = specs_shift_sample$pre_periods, 
+      citation_var = specs_shift_sample$citation_var,
+      filepath = specs_shift_sample$fig_path
+    ),
+    pattern = map(specs_shift_sample),
+    format  = "file"
+  ),
+  tar_target(
+    specs_shift_post,
+    shift_post_specs
+  ),
+  tar_target(
+    shift_post_est,
+    shift_post(
+      data = merge_master,
+      pop_data = population_dta,
+      gov_data = gov_interest,
+      treatment_year = specs_shift_post$treatment_year,
+      increment = specs_shift_post$increment,
+      pre_periods = specs_shift_post$pre_periods, 
+      citation_var = specs_shift_post$citation_var,
+      filepath = specs_shift_post$fig_path
+    ),
+    pattern = map(specs_shift_post),
+    format  = "file"
+  )
+)
+```
+
+# Pipeline
+
+If you ran all the `{targets}` chunks in non-interactive mode, then your R scripts are set up to run the pipeline.
+
+```{r}
+TAR_MAKE_WRAPPER()
+```
+
+# Output
+
+You can retrieve results from the `_targets/` data store using `tar_read()` or `tar_load()`.
+
+The `targets` dependency graph helps your readers understand the steps of your pipeline at a high level.
+
+```{r}
+tar_visnetwork()
+```
