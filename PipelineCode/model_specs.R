@@ -60,9 +60,9 @@ gen_main_table <- function(data, pop_data, gov_data){
             dep.var.labels.include = FALSE,
             intercept.bottom = FALSE,
             digits = 4,
-            out = "AI/tables/tab3.tex")
+            out = "Results/tables/tab3.tex")
   
-  return("AI/tables/tab3.tex")
+  return("Results/tables/tab3.tex")
 }
 
 #Main (30; Share)
@@ -113,9 +113,9 @@ gen_share_table <- function(data, pop_data, gov_data){
             dep.var.labels.include = FALSE,
             intercept.bottom = FALSE,
             digits = 4,
-            out = "AI/tables/tabC1.tex")
+            out = "Results/tables/tabC1.tex")
   
-  return("AI/tables/tabC1.tex")
+  return("Results/tables/tabC1.tex")
 }
 
 #Diff citation windows
@@ -207,9 +207,9 @@ gen_window_table <- function(data, pop_data, gov_data){
             dep.var.labels.include = FALSE,
             intercept.bottom = FALSE,
             digits = 4,
-            out = "AI/tables/tabC2.tex")
+            out = "Results/tables/tabC2.tex")
   
-  return("AI/tables/tabC2.tex")
+  return("Results/tables/tabC2.tex")
 }
 
 #Robustness checks
@@ -312,9 +312,9 @@ gen_robustness_table <- function(data, pop_data, gov_data){
             dep.var.labels.include = FALSE,
             intercept.bottom = FALSE,
             digits = 4,
-            out = "AI/tables/tab4.tex")
+            out = "Results/tables/tab4.tex")
   
-  return("AI/tables/tab4.tex")
+  return("Results/tables/tab4.tex")
 }
 
 #Second Sampling Method
@@ -381,9 +381,9 @@ gen_altsample_table <- function(data, data_all, pop_data, gov_data){
             dep.var.labels.include = FALSE,
             intercept.bottom = FALSE,
             digits = 4,
-            out = "AI/tables/tab5.tex")
+            out = "Results/tables/tab5.tex")
   
-  return("AI/tables/tab5.tex")
+  return("Results/tables/tab5.tex")
 }
 
 #Add tech cluster FE
@@ -420,7 +420,7 @@ gen_tech_table <- function(data, pop_data, gov_data){
             dep.var.labels.include = FALSE,
             intercept.bottom = FALSE,
             digits = 4,
-            out = "AI/tables/tabC3.tex")
+            out = "Results/tables/tabC3.tex")
   
-  return("AI/tables/tabC3.tex")
+  return("Results/tables/tabC3.tex")
 }

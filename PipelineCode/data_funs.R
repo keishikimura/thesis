@@ -65,7 +65,8 @@ load_assignee_dta <- function(assignee_path, location_dta){
 }
 
 #Helper function to assign patents to inventor location
-inventor_prep <- function(city_type, inventor_location_dta, csa_dta){
+inventor_prep <- function(city_type, inventor_location_dta, csa_dta,
+                          migration_flags){
   
   city_var <- paste0(city_type, ".Code")
   title_var <- paste0(city_type, ".Title")
@@ -334,7 +335,7 @@ cum_citations <- function(lag){
   cit_varname <- paste0("count_", as.character(lag))
   out_varname <- paste0("out_", as.character(lag))
   
-  df <- read_csv("AI/data/generated/cum_citations_outside.csv") %>%
+  df <- read_csv("Data/generated/cum_citations_outside.csv") %>%
     filter(citation_lag == lag) %>%
     select(-citation_lag) %>%
     rename(!!cit_varname := cum_count,

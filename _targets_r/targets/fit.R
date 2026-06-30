@@ -3,7 +3,8 @@ lapply(
     "PipelineCode/sample_funs.R",
     "PipelineCode/model_funs.R",
     "PipelineCode/model_specs.R",
-    "PipelineCode/loo.R"
+    "PipelineCode/loo.R",
+    "PipelineCode/data_funs.R"
   ),
   tar_source
 )

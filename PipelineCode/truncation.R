@@ -4,14 +4,14 @@ library(lubridate)
 
 # Data --------------------------------------------------------------------
 
-patent_dta <- read_csv("AI/data/generated/AIpatentMSA.csv") %>%
+patent_dta <- AIpatent_MSA %>%
   filter(predict50_any_ai == 1) %>%
   select(doc_id, city_inventor, cityname_inventor, filing_date,
          predict50_ml, predict50_nlp, predict50_planning,
          predict50_kr, predict50_hardware, predict50_speech,
          predict50_vision)
 
-ai_citations <- read_tsv("AI/data/raw/uspto/g_us_patent_citation.tsv") %>%
+ai_citations <- read_tsv("Data/raw/uspto/g_us_patent_citation.tsv") %>%
   select(patent_id, citation_patent_id) %>%
   right_join(patent_dta, by = c("citation_patent_id" = "doc_id")) %>%
   filter(!is.na(patent_id))
@@ -19,7 +19,7 @@ ai_citations <- read_tsv("AI/data/raw/uspto/g_us_patent_citation.tsv") %>%
 # Citation lifespan -------------------------------------------------------
 
 #Get citing patent information and merge
-patent <- read_tsv("AI/data/raw/uspto/g_patent.tsv") %>%
+patent <- read_tsv("Data/raw/uspto/g_patent.tsv") %>%
   select(patent_id, patent_date)
 
 ai_citations_merged <- ai_citations %>%
@@ -104,8 +104,13 @@ mean_citations_by_lag <- citations_expanded %>%
 mean_citations_by_lag %>% 
   filter(citation_lag >= 0) %>%
   ggplot(aes(x = citation_lag, y = avg_citation)) +
-  geom_line()
-ggsave("AI/figures/citations/figA1.png")
+  geom_line() +
+  labs(
+    x = "Years of Citation Lag",
+    y = "Average Citation Count"
+  ) + 
+  theme_classic(base_size = 14)
+ggsave("Results/figures/citations/figA1.png", width = 10, height = 6)
 
 #Do the same for highly cited patents
 mean_citations_hc <- citations_expanded %>%
@@ -120,8 +125,13 @@ mean_citations_hc %>%
   geom_line() +
   labs(
     color = "Decade"
-  )
-ggsave("AI/figures/citations/figA2.png")
+  ) + 
+  labs(
+    x = "Years of Citation Lag",
+    y = "Average Citation Count"
+  ) + 
+  theme_classic(base_size = 14)
+ggsave("Results/figures/citations/figA2.png", width = 10, height = 6)
 
 #Do the same for each class
 count_by_year <- function(){
@@ -146,14 +156,46 @@ count_by_year <- function(){
   return(df)
 }
 
-by_class <- count_by_year()
+by_class <- count_by_year() %>%
+  mutate(
+    type = case_when(
+      type == "any_ai" ~ "All",
+      type == "hardware" ~ "AI Hardware",
+      type == "kr" ~ "Knowledge Processing",
+      type == "ml" ~ "ML",
+      type == "nlp" ~ "NLP",
+      type == "planning" ~ "Planning/Control",
+      type == "speech" ~ "Speech",
+      type == "vision" ~ "Computer Vision"
+    ),
+    type = factor(type, levels = c(
+      "All","AI Hardware","Knowledge Processing","ML","NLP","Planning/Control","Speech","Computer Vision"
+    ))
+  )
+
+pal <- c(
+  "All" = "black",
+  "Planning/Control" = "#e6ab02",
+  "Knowledge Processing" = "#7570b3",
+  "AI Hardware" = "#1b9e77",
+  "Computer Vision" = "#d95f02",
+  "ML" = "#e7298a",
+  "NLP" = "#66a61e",
+  "Speech" = "#a6761d"
+)
 
 #Plot by class
 by_class %>% 
   filter(citation_lag >= 0) %>%
   ggplot(aes(x = citation_lag, y = avg_citation, color = type)) +
-  geom_line()
-ggsave("AI/figures/citations/figA3.png")
+  geom_line() +
+  labs(
+    x = "Years of Citation Lag",
+    y = "Average Citation Count",
+    color = "AI Component"
+  ) + 
+  theme_classic(base_size = 14)
+ggsave("Results/figures/citations/figA3.png", width = 10, height = 6)
 
 #Do the same but for each year within a 10 year cohort
 within_cohort <- function(cohort){
@@ -179,21 +221,24 @@ within_cohort <- function(cohort){
     ggplot(aes(x = citation_lag, y = avg_citation, color = as.factor(type))) +
     geom_line() +
     labs(
-      color = "Split start year"
-    )
+      color = "Start Year",
+      x = "Years of Citation Lag",
+      y = "Average Citation Count"
+    ) +
+    theme_classic(base_size = 14)
 }
 
 within_cohort(1980)
-ggsave("AI/figures/citations/figA4a.png")
+ggsave("Results/figures/citations/figA4a.png", width = 10, height = 6)
 
 within_cohort(1985)
-ggsave("AI/figures/citations/figA4b.png")
+ggsave("Results/figures/citations/figA4b.png", width = 10, height = 6)
 
 within_cohort(1990)
-ggsave("AI/figures/citations/figA4c.png")
+ggsave("Results/figures/citations/figA4c.png", width = 10, height = 6)
 
 within_cohort(1995)
-ggsave("AI/figures/citations/figA4d.png")
+ggsave("Results/figures/citations/figA4d.png", width = 10, height = 6)
 
 within_cohort(2000)
-ggsave("AI/figures/citations/figA4e.png")
+ggsave("Results/figures/citations/figA4e.png", width = 10, height = 6)

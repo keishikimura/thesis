@@ -67,9 +67,9 @@ gen_summary_all <- function(data_all){
   kable(stats_merged, "latex", booktabs = TRUE, caption = "Descriptive statistics for all cities.",
         linesep = "") %>%
     kable_styling(latex_options = c("scale_down", "hold_position")) %>%
-    save_kable("AI/tables/tab2a.tex")
+    save_kable("Results/tables/tab2a.tex")
   
-  return("AI/tables/tab2a.tex")
+  return("Results/tables/tab2a.tex")
 }
 
 # Summary stats (top 25) --------------------------------------------------
@@ -148,18 +148,18 @@ gen_summary_top <- function(data, data_all, panel){
           linesep = "") %>%
       kable_styling(latex_options = c("scale_down", "HOLD_position")) %>%
       add_header_above(c(" " = 1, "City Rank" = 3, " " = 4)) %>%
-      save_kable("AI/tables/tab1a.tex")
+      save_kable("Results/tables/tab1a.tex")
     
-    return("AI/tables/tab1a.tex")
+    return("Results/tables/tab1a.tex")
     
   } else if(panel == "B"){
     
     kable(top_avg_merged, "latex", booktabs = TRUE) %>%
       kable_styling(latex_options = c("scale_down", "HOLD_position")) %>%
       add_footnote("Footnote 1", threeparttable = TRUE) %>%
-      save_kable("AI/tables/tab1b.tex")
+      save_kable("Results/tables/tab1b.tex")
     
-    return("AI/tables/tab1b.tex")
+    return("Results/tables/tab1b.tex")
   }
 
 }
@@ -332,7 +332,7 @@ gen_summary_tech <- function(data, gov_data){
   kable(tech_dta_summary, "latex", booktabs = TRUE, caption = "Descriptive statistics for tech cities.",
         linesep = "") %>%
     kable_styling(latex_options = c("scale_down", "hold_position")) %>%
-    save_kable("AI/tables/tab2b.tex")
+    save_kable("Results/tables/tab2b.tex")
   
-  return("AI/tables/tab2b.tex")
+  return("Results/tables/tab2b.tex")
 }

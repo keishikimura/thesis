@@ -1,7 +1,7 @@
 library(tidyverse)
 library(lubridate)
 
-dta_ai <- read.csv("AI/data/generated/AIpatentCBSA.csv") %>%
+dta_ai <- read.csv("Data/generated/AIpatentCBSA.csv") %>%
   mutate(
     pub_dt = ymd(pub_dt),
     year = year(pub_dt),

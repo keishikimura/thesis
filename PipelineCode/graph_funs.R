@@ -2,23 +2,23 @@ library(tibble)
 
 graphical_specs <- tribble(
   ~treatment_year, ~citation_var,        ~fig_path,
-  1999,            "count_24",           "AI/figures/fig2.png",
-  1994,            "forward_citations",  "AI/figures/graphical/figB1a.png",
-  1999,            "forward_citations",  "AI/figures/graphical/figB1b.png",
-  2004,            "forward_citations",  "AI/figures/graphical/figB1c.png",
-  2009,            "forward_citations",  "AI/figures/graphical/figB1d.png",
-  1994,            "count_14",           "AI/figures/graphical/figB2a.png",
-  1999,            "count_14",           "AI/figures/graphical/figB2b.png",
-  2004,            "count_14",           "AI/figures/graphical/figB2c.png",
-  2009,            "count_14",           "AI/figures/graphical/figB2d.png",
-  1994,            "count_9",            "AI/figures/graphical/figB3a.png",
-  1999,            "count_9",            "AI/figures/graphical/figB3b.png",
-  2004,            "count_9",            "AI/figures/graphical/figB3c.png",
-  2009,            "count_9",            "AI/figures/graphical/figB3d.png",
-  1994,            "count_4",            "AI/figures/graphical/figB4a.png",
-  1999,            "count_4",            "AI/figures/graphical/figB4b.png",
-  2004,            "count_4",            "AI/figures/graphical/figB4c.png",
-  2009,            "count_4",            "AI/figures/graphical/figB4d.png"
+  1999,            "count_24",           "Results/figures/fig2.png",
+  1994,            "forward_citations",  "Results/figures/graphical/figB1a.png",
+  1999,            "forward_citations",  "Results/figures/graphical/figB1b.png",
+  2004,            "forward_citations",  "Results/figures/graphical/figB1c.png",
+  2009,            "forward_citations",  "Results/figures/graphical/figB1d.png",
+  1994,            "count_14",           "Results/figures/graphical/figB2a.png",
+  1999,            "count_14",           "Results/figures/graphical/figB2b.png",
+  2004,            "count_14",           "Results/figures/graphical/figB2c.png",
+  2009,            "count_14",           "Results/figures/graphical/figB2d.png",
+  1994,            "count_9",            "Results/figures/graphical/figB3a.png",
+  1999,            "count_9",            "Results/figures/graphical/figB3b.png",
+  2004,            "count_9",            "Results/figures/graphical/figB3c.png",
+  2009,            "count_9",            "Results/figures/graphical/figB3d.png",
+  1994,            "count_4",            "Results/figures/graphical/figB4a.png",
+  1999,            "count_4",            "Results/figures/graphical/figB4b.png",
+  2004,            "count_4",            "Results/figures/graphical/figB4c.png",
+  2009,            "count_4",            "Results/figures/graphical/figB4d.png"
 )
 
 graphical <- function(dta_all_merged_excl, treatment_year, pre_periods, city_type, 
@@ -66,7 +66,11 @@ graphical <- function(dta_all_merged_excl, treatment_year, pre_periods, city_typ
                 group_by(year) %>%
                 summarize(count = n()), by = "year") %>%
     mutate(
-      year_share = year_sum/count
+      year_share = year_sum/count,
+      rank_group = ifelse(rank_group == 1, "Top 5", "Bottom 5"),
+      rank_group = factor(rank_group, levels = c(
+       "Top 5", "Bottom 5"
+      ))
     )
   
   df_dotted <- dta_excl_plot[dta_excl_plot$year <= treatment_year - pre_periods , ]
@@ -79,17 +83,20 @@ graphical <- function(dta_all_merged_excl, treatment_year, pre_periods, city_typ
     geom_vline(xintercept = treatment_year - pre_periods) +
     labs(
       x = "Year",
-      y = "Share of AI patents",
-      color = "Top 5?",
+      y = "Share of AI Patents",
+      color = "Breakthrough Ratio",
     ) +
-    xlim(c(1974, 2017)) +
-    ylim(c(0, 0.45))
+    scale_x_continuous(limits = c(1974, 2017),
+                       expand = expansion(mult = 0, add = 0)) +
+    ylim(c(0, 0.45)) +
+    scale_color_manual(values = c("Top 5" = "#00BFC4", "Bottom 5" = "#F8766D")) +
+    theme_classic(base_size = 14)
   
   ggsave(
     filename = fig_path,
     plot = p,
-    width = 8,
-    height = 5
+    width = 10,
+    height = 6
   )
   
   return(fig_path)

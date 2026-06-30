@@ -80,8 +80,8 @@ gen_loo_fig <- function(data, pop_data, gov_data){
     theme_minimal() +
     theme(axis.text.x = element_text(angle = 90, hjust = 1))
   
-  ggsave("AI/figures/figC1.png", p)
+  ggsave("Results/figures/figC1.png", p)
   
-  return("AI/figures/figC1.png")
+  return("Results/figures/figC1.png")
 }
 

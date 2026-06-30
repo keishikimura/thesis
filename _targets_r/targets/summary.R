@@ -1,6 +1,7 @@
 lapply(
   c(
-    "PipelineCode/summary.R"
+    "PipelineCode/summary.R",
+    "PipelineCode/timeseries.R"
   ),
   tar_source
 )
@@ -26,6 +27,11 @@ list(
     summary_tech,
     gen_summary_tech(data = merge_master,
                      gov_data = gov_interest),
+    format = "file"
+  ),
+  tar_target(
+    timeseries,
+    gen_timeseries(data = AIpatent_MSA),
     format = "file"
   )
 )

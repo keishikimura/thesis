@@ -1,7 +1,7 @@
 library(tidyverse)
 library(lubridate)
 
-dta_ai <- read.csv("AI/data/generated/AIpatentCSA.csv")
+dta_ai <- read.csv("Data/generated/AIpatentCSA.csv")
 
 run_model <- function(data, shock_year, cutoff_year, app = FALSE, log = FALSE){
   data <- data %>%

@@ -1,8 +1,8 @@
 # Shifting sample --------------------------------------------------------
 shift_sample_specs <- tribble(
   ~sample_length, ~pre_periods, ~citation_var,  ~fig_path,
-  30,            9,           "count_24",     "AI/figures/fig3a.png",
-  20,          9,             "count_18",     "AI/figures/fig3b.png"
+  30,            9,           "count_24",     "Results/figures/fig3a.png",
+  20,          9,             "count_18",     "Results/figures/fig3b.png"
 )
 
 
@@ -74,8 +74,8 @@ shift_sample <- function(data, pop_data, gov_data,sample_length, pre_periods, ci
 # Shifting post-period ----------------------------------------------------
 shift_post_specs <- tribble(
   ~treatment_year, ~increment, ~pre_periods, ~citation_var,  ~fig_path,
-  1989,             20,         9,           "count_34",     "AI/figures/fig4a.png",
-  1989,             30,         9,           "count_34",     "AI/figures/fig4b.png",
+  1989,             20,         9,           "count_34",     "Results/figures/fig4a.png",
+  1989,             30,         9,           "count_34",     "Results/figures/fig4b.png",
 )
 
 shift_post <- function(data, pop_data, gov_data, treatment_year, increment, pre_periods, 

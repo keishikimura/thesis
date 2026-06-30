@@ -2,10 +2,10 @@ library(tidyverse)
 library(readr)
 library(lubridate)
 
-cpc_dta <- read_tsv("AI/data/raw/uspto/g_cpc_current.tsv")
-dta_ai <- read.csv("AI/data/generated/AIpatentCSA.csv")
-cpc_past <- read_tsv("AI/data/raw/uspto/g_cpc_at_issue.tsv")
-uspc_past <- read_tsv("AI/data/raw/uspto/g_uspc_at_issue.tsv")
+cpc_dta <- read_tsv("Data/raw/uspto/g_cpc_current.tsv")
+dta_ai <- read.csv("Data/generated/AIpatentCSA.csv")
+cpc_past <- read_tsv("Data/raw/uspto/g_cpc_at_issue.tsv")
+uspc_past <- read_tsv("Data/raw/uspto/g_uspc_at_issue.tsv")
 
 # Data --------------------------------------------------------------------
 
